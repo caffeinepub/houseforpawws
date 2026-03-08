@@ -2,40 +2,81 @@ import { Principal } from "@icp-sdk/core/principal";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   ConversationView,
+  FullUserProfile,
   MessageView,
   Pet,
-  UserProfile,
+  PublicUserProfile,
+  UserProfileResult,
 } from "../backend";
 import { useActor } from "./useActor";
 import { useInternetIdentity } from "./useInternetIdentity";
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Normalise a UserProfileResult to the public-safe shape */
+function normaliseProfileResult(
+  result: UserProfileResult | null,
+): PublicUserProfile | null {
+  if (!result) return null;
+  if (result.__kind__ === "full") {
+    const { bio, displayName, profilePhoto, location } = result.full;
+    return { bio, displayName, profilePhoto, location };
+  }
+  return result.publicView;
+}
 
 // ── User Profile ────────────────────────────────────────────────────────────
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
-  const query = useQuery<UserProfile | null>({
+  const { isInitializing } = useInternetIdentity();
+  const query = useQuery<FullUserProfile | null>({
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
       return actor.getCallerUserProfile();
     },
-    enabled: !!actor && !actorFetching,
-    retry: false,
+    // Don't fire until auth is fully initialized AND the actor is ready
+    enabled: !isInitializing && !!actor && !actorFetching,
+    // Retry a couple of times to handle transient actor-not-ready errors
+    retry: 2,
+    retryDelay: 1000,
+    // Keep previously fetched profile data while re-fetching to avoid
+    // "null flash" that incorrectly triggers the ProfileSetupModal
+    staleTime: 30_000,
   });
   return {
     ...query,
-    isLoading: actorFetching || query.isLoading,
-    isFetched: !!actor && query.isFetched,
+    isLoading: isInitializing || actorFetching || query.isLoading,
+    isFetched: !isInitializing && !!actor && query.isFetched,
   };
 }
 
+/** Returns normalised public-safe profile (no email/phone) for any user */
 export function useGetUserProfile(principal: string | undefined) {
   const { actor, isFetching: actorFetching } = useActor();
-  return useQuery<UserProfile | null>({
+  return useQuery<PublicUserProfile | null>({
     queryKey: ["userProfile", principal],
     queryFn: async () => {
       if (!actor || !principal) return null;
-      return actor.getUserProfile(Principal.fromText(principal));
+      const result = await actor.getUserProfile(Principal.fromText(principal));
+      return normaliseProfileResult(result);
+    },
+    enabled: !!actor && !actorFetching && !!principal,
+  });
+}
+
+/** Returns full profile (with email/phone) for the current user's own views */
+export function useGetFullUserProfile(principal: string | undefined) {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery<FullUserProfile | null>({
+    queryKey: ["fullUserProfile", principal],
+    queryFn: async () => {
+      if (!actor || !principal) return null;
+      const result = await actor.getUserProfile(Principal.fromText(principal));
+      if (!result) return null;
+      if (result.__kind__ === "full") return result.full;
+      return null;
     },
     enabled: !!actor && !actorFetching && !!principal,
   });
@@ -45,7 +86,7 @@ export function useSaveCallerUserProfile() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (profile: UserProfile) => {
+    mutationFn: async (profile: FullUserProfile) => {
       if (!actor) throw new Error("Not authenticated");
       await actor.saveCallerUserProfile(profile);
     },

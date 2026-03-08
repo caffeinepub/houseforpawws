@@ -21,11 +21,12 @@ import PetFormPage from "./pages/PetFormPage";
 import ProfilePage from "./pages/ProfilePage";
 import PublicProfilePage from "./pages/PublicProfilePage";
 import RegisterPage from "./pages/RegisterPage";
+import SettingsPage from "./pages/SettingsPage";
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 function RootLayout() {
-  const { identity } = useInternetIdentity();
+  const { identity, isInitializing } = useInternetIdentity();
   const {
     data: profile,
     isLoading: profileLoading,
@@ -34,8 +35,17 @@ function RootLayout() {
   const queryClient = useQueryClient();
 
   const isAuthenticated = !!identity;
+  // Only show profile setup when:
+  // 1. Auth is fully initialized (not still loading)
+  // 2. User is authenticated
+  // 3. Profile query has completed (isFetched) and is not currently loading
+  // 4. Profile is explicitly null (not undefined, which means "not yet fetched")
   const showProfileSetup =
-    isAuthenticated && !profileLoading && isFetched && profile === null;
+    !isInitializing &&
+    isAuthenticated &&
+    !profileLoading &&
+    isFetched &&
+    profile === null;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -131,6 +141,12 @@ const adminRoute = createRoute({
   component: AdminDashboardPage,
 });
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: SettingsPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
@@ -143,6 +159,7 @@ const routeTree = rootRoute.addChildren([
   inboxRoute,
   inboxConvRoute,
   adminRoute,
+  settingsRoute,
 ]);
 
 const router = createRouter({ routeTree });

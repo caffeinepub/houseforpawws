@@ -17,6 +17,7 @@ import {
   PawPrint,
   PlusCircle,
   Search,
+  Settings,
   Shield,
 } from "lucide-react";
 import { useState } from "react";
@@ -26,7 +27,7 @@ import { useGetCallerUserProfile } from "../hooks/useQueries";
 import { useGetMyConversations } from "../hooks/useQueries";
 
 export default function Navbar() {
-  const { identity, clear, login, isLoggingIn } = useInternetIdentity();
+  const { identity, clear } = useInternetIdentity();
   const { data: profile } = useGetCallerUserProfile();
   const { data: conversations } = useGetMyConversations();
   const queryClient = useQueryClient();
@@ -79,6 +80,16 @@ export default function Navbar() {
         >
           <PlusCircle className="h-4 w-4" />
           List a Pet
+        </Link>
+      )}
+      {isAuthenticated && (
+        <Link
+          to="/settings"
+          className="flex items-center gap-1.5 text-sm font-medium text-foreground/70 hover:text-primary transition-colors"
+          data-ocid="nav.settings.mobile.link"
+        >
+          <Settings className="h-4 w-4" />
+          Settings
         </Link>
       )}
       {isAdmin && (
@@ -182,6 +193,15 @@ export default function Navbar() {
                     Inbox
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/settings"
+                    className="cursor-pointer"
+                    data-ocid="nav.settings.link"
+                  >
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild>
                     <Link
@@ -208,20 +228,18 @@ export default function Navbar() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={login}
-                disabled={isLoggingIn}
+                asChild
                 data-ocid="nav.login.button"
               >
-                {isLoggingIn ? "Signing in..." : "Log In"}
+                <Link to="/login">Log In</Link>
               </Button>
               <Button
                 size="sm"
-                onClick={login}
-                disabled={isLoggingIn}
+                asChild
                 className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full"
                 data-ocid="nav.register.button"
               >
-                Sign Up
+                <Link to="/register">Sign Up</Link>
               </Button>
             </div>
           )}

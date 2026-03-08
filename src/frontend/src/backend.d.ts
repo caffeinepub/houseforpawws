@@ -30,6 +30,12 @@ export interface Pet {
     isAdopted: boolean;
 }
 export type Time = bigint;
+export interface PublicUserProfile {
+    bio: string;
+    displayName: string;
+    profilePhoto?: ExternalBlob;
+    location: string;
+}
 export interface MessageView {
     text: string;
     sender: Principal;
@@ -41,16 +47,25 @@ export interface Stats {
     totalUsers: bigint;
     totalConversations: bigint;
 }
+export type UserProfileResult = {
+    __kind__: "publicView";
+    publicView: PublicUserProfile;
+} | {
+    __kind__: "full";
+    full: FullUserProfile;
+};
 export interface ConversationView {
     id: string;
     messages: Array<MessageView>;
     user1: Principal;
     user2: Principal;
 }
-export interface UserProfile {
+export interface FullUserProfile {
     bio: string;
     displayName: string;
     profilePhoto?: ExternalBlob;
+    email: string;
+    phone: string;
     location: string;
 }
 export enum UserRole {
@@ -61,7 +76,7 @@ export enum UserRole {
 export interface backendInterface {
     adminBanUser(user: Principal): Promise<void>;
     adminDeletePet(petId: string): Promise<void>;
-    adminGetAllUsers(): Promise<Array<[Principal, UserProfile]>>;
+    adminGetAllUsers(): Promise<Array<[Principal, FullUserProfile]>>;
     adminGetBannedUsers(): Promise<Array<Principal>>;
     adminGetStats(): Promise<Stats>;
     adminUnbanUser(user: Principal): Promise<void>;
@@ -70,7 +85,7 @@ export interface backendInterface {
     deletePet(petId: string): Promise<void>;
     getAdoptedPets(isAdopted: boolean): Promise<Array<Pet>>;
     getAllPets(): Promise<Array<Pet>>;
-    getCallerUserProfile(): Promise<UserProfile | null>;
+    getCallerUserProfile(): Promise<FullUserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getConversationParticipants(conversationId: string): Promise<[Principal, Principal]>;
     getMessages(conversationId: string): Promise<Array<MessageView>>;
@@ -78,9 +93,9 @@ export interface backendInterface {
     getPet(petId: string): Promise<Pet | null>;
     getPetsByLocation(location: string): Promise<Array<Pet>>;
     getPetsBySpecies(species: string): Promise<Array<Pet>>;
-    getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getUserProfile(user: Principal): Promise<UserProfileResult | null>;
     isCallerAdmin(): Promise<boolean>;
-    saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    saveCallerUserProfile(profile: FullUserProfile): Promise<void>;
     sendMessage(conversationId: string, text: string): Promise<void>;
     startOrGetConversation(otherUser: Principal): Promise<string>;
     updatePet(petId: string, updatedPet: Pet): Promise<void>;

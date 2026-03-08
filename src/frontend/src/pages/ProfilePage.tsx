@@ -27,7 +27,7 @@ import {
 } from "../hooks/useQueries";
 
 export default function ProfilePage() {
-  const { identity } = useInternetIdentity();
+  const { identity, isInitializing } = useInternetIdentity();
   const navigate = useNavigate();
   const {
     data: profile,
@@ -40,6 +40,8 @@ export default function ProfilePage() {
 
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [photoBlob, setPhotoBlob] = useState<ExternalBlob | undefined>(
@@ -49,13 +51,20 @@ export default function ProfilePage() {
     undefined,
   );
 
+  // Only redirect to login once auth is fully initialized.
+  // Redirecting during "initializing" causes a flash for returning users
+  // whose identity loads from local storage.
   useEffect(() => {
-    if (!identity) navigate({ to: "/login" });
-  }, [identity, navigate]);
+    if (!isInitializing && !identity) {
+      navigate({ to: "/login" });
+    }
+  }, [isInitializing, identity, navigate]);
 
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.displayName ?? "");
+      setEmail(profile.email ?? "");
+      setPhone(profile.phone ?? "");
       setBio(profile.bio ?? "");
       setLocation(profile.location ?? "");
       setPhotoBlob(profile.profilePhoto);
@@ -82,6 +91,8 @@ export default function ProfilePage() {
     try {
       await saveProfile({
         displayName: displayName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
         bio: bio.trim(),
         location: location.trim(),
         profilePhoto: photoBlob,
@@ -96,6 +107,8 @@ export default function ProfilePage() {
   const handleCancel = () => {
     if (profile) {
       setDisplayName(profile.displayName ?? "");
+      setEmail(profile.email ?? "");
+      setPhone(profile.phone ?? "");
       setBio(profile.bio ?? "");
       setLocation(profile.location ?? "");
       setPhotoBlob(profile.profilePhoto);
@@ -106,7 +119,7 @@ export default function ProfilePage() {
 
   const initials = displayName?.slice(0, 2).toUpperCase() || "?";
 
-  if (profileLoading && !isFetched) {
+  if (isInitializing || (profileLoading && !isFetched)) {
     return (
       <div
         className="container py-10 max-w-3xl"
@@ -215,6 +228,45 @@ export default function ProfilePage() {
                   placeholder="Your display name"
                   data-ocid="profile.display_name.input"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Visible to all users.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="profile-email">
+                  Email Address{" "}
+                  <span className="text-xs text-muted-foreground font-normal">
+                    (private)
+                  </span>
+                </Label>
+                <Input
+                  id="profile-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  data-ocid="profile.email.input"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="profile-phone">
+                  Phone Number{" "}
+                  <span className="text-xs text-muted-foreground font-normal">
+                    (private)
+                  </span>
+                </Label>
+                <Input
+                  id="profile-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 (555) 000-0000"
+                  data-ocid="profile.phone.input"
+                />
+                <p className="text-xs text-muted-foreground bg-muted/60 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                  <span>🔒</span>
+                  Email and phone are private — only visible to the admin.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="bio">Bio</Label>

@@ -24,25 +24,38 @@ export default function ProfileSetupModal({
   onComplete,
 }: ProfileSetupModalProps) {
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
+  const [saved, setSaved] = useState(false);
   const { mutateAsync: saveProfile, isPending } = useSaveCallerUserProfile();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!displayName.trim()) return;
+    if (!displayName.trim() || !email.trim() || !phone.trim() || saved) return;
     try {
+      // Mark as saved immediately so the modal doesn't re-open while
+      // the query invalidation/refetch is in flight
+      setSaved(true);
       await saveProfile({
         displayName: displayName.trim(),
         bio: bio.trim(),
         location: location.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
       });
       toast.success("Welcome to HouseForPawws! 🐾");
       onComplete();
     } catch {
+      setSaved(false);
       toast.error("Failed to save profile. Please try again.");
     }
   };
+
+  // Don't render the modal if save was just completed -- prevents flicker
+  // while the profile query is invalidating and refetching
+  if (saved && !open) return null;
 
   return (
     <Dialog open={open} data-ocid="profile_setup.dialog">
@@ -71,6 +84,37 @@ export default function ProfileSetupModal({
               required
               data-ocid="profile_setup.input"
             />
+            <p className="text-xs text-muted-foreground">
+              Visible to all users on the platform.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="setup-email">Email Address *</Label>
+            <Input
+              id="setup-email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              data-ocid="profile_setup.email.input"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="setup-phone">Phone Number *</Label>
+            <Input
+              id="setup-phone"
+              type="tel"
+              placeholder="+1 (555) 000-0000"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              data-ocid="profile_setup.phone.input"
+            />
+            <p className="text-xs text-muted-foreground bg-muted/60 rounded-lg px-3 py-2 flex items-center gap-1.5">
+              <span>🔒</span>
+              Email and phone are private — only visible to the admin.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="bio">Bio</Label>
@@ -96,7 +140,9 @@ export default function ProfileSetupModal({
           <Button
             type="submit"
             className="w-full rounded-full bg-primary text-primary-foreground"
-            disabled={!displayName.trim() || isPending}
+            disabled={
+              !displayName.trim() || !email.trim() || !phone.trim() || isPending
+            }
             data-ocid="profile_setup.submit_button"
           >
             {isPending ? (

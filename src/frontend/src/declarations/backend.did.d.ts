@@ -17,6 +17,14 @@ export interface ConversationView {
   'user2' : Principal,
 }
 export type ExternalBlob = Uint8Array;
+export interface FullUserProfile {
+  'bio' : string,
+  'displayName' : string,
+  'profilePhoto' : [] | [ExternalBlob],
+  'email' : string,
+  'phone' : string,
+  'location' : string,
+}
 export interface MessageView {
   'text' : string,
   'sender' : Principal,
@@ -37,6 +45,12 @@ export interface Pet {
   'location' : string,
   'isAdopted' : boolean,
 }
+export interface PublicUserProfile {
+  'bio' : string,
+  'displayName' : string,
+  'profilePhoto' : [] | [ExternalBlob],
+  'location' : string,
+}
 export interface Stats {
   'totalPets' : bigint,
   'adoptedPets' : bigint,
@@ -44,12 +58,8 @@ export interface Stats {
   'totalConversations' : bigint,
 }
 export type Time = bigint;
-export interface UserProfile {
-  'bio' : string,
-  'displayName' : string,
-  'profilePhoto' : [] | [ExternalBlob],
-  'location' : string,
-}
+export type UserProfileResult = { 'publicView' : PublicUserProfile } |
+  { 'full' : FullUserProfile };
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
@@ -83,7 +93,7 @@ export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'adminBanUser' : ActorMethod<[Principal], undefined>,
   'adminDeletePet' : ActorMethod<[string], undefined>,
-  'adminGetAllUsers' : ActorMethod<[], Array<[Principal, UserProfile]>>,
+  'adminGetAllUsers' : ActorMethod<[], Array<[Principal, FullUserProfile]>>,
   'adminGetBannedUsers' : ActorMethod<[], Array<Principal>>,
   'adminGetStats' : ActorMethod<[], Stats>,
   'adminUnbanUser' : ActorMethod<[Principal], undefined>,
@@ -92,7 +102,7 @@ export interface _SERVICE {
   'deletePet' : ActorMethod<[string], undefined>,
   'getAdoptedPets' : ActorMethod<[boolean], Array<Pet>>,
   'getAllPets' : ActorMethod<[], Array<Pet>>,
-  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [FullUserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getConversationParticipants' : ActorMethod<[string], [Principal, Principal]>,
   'getMessages' : ActorMethod<[string], Array<MessageView>>,
@@ -100,9 +110,9 @@ export interface _SERVICE {
   'getPet' : ActorMethod<[string], [] | [Pet]>,
   'getPetsByLocation' : ActorMethod<[string], Array<Pet>>,
   'getPetsBySpecies' : ActorMethod<[string], Array<Pet>>,
-  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfileResult]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
-  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'saveCallerUserProfile' : ActorMethod<[FullUserProfile], undefined>,
   'sendMessage' : ActorMethod<[string, string], undefined>,
   'startOrGetConversation' : ActorMethod<[Principal], string>,
   'updatePet' : ActorMethod<[string, Pet], undefined>,

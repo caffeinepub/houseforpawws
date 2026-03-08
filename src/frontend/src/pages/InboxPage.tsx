@@ -46,30 +46,30 @@ function ConversationItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/60 transition-colors rounded-xl",
+        "w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-muted/60 transition-colors rounded-xl",
         isActive && "bg-primary/10 hover:bg-primary/15",
       )}
       data-ocid={`inbox.conversation.item.${index}`}
     >
-      <Avatar className="h-10 w-10 shrink-0">
+      <Avatar className="h-12 w-12 shrink-0">
         {otherProfile?.profilePhoto && (
           <AvatarImage src={otherProfile.profilePhoto.getDirectURL()} />
         )}
-        <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
+        <AvatarFallback className="bg-primary/20 text-primary text-base font-semibold">
           {initials}
         </AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
         <p
           className={cn(
-            "text-sm font-semibold text-foreground truncate",
+            "text-base font-semibold text-foreground truncate",
             isActive && "text-primary",
           )}
         >
           {otherProfile?.displayName ?? "Anonymous"}
         </p>
         {lastMsg && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
+          <p className="text-sm text-muted-foreground truncate mt-0.5">
             {lastMsg.text}
           </p>
         )}
@@ -97,10 +97,10 @@ function MessageBubble({
 
   return (
     <div className={cn("flex", isSent ? "justify-end" : "justify-start")}>
-      <div className="max-w-[70%] space-y-1">
+      <div className="max-w-[75%] space-y-1">
         <div
           className={cn(
-            "px-4 py-2.5 text-sm leading-relaxed",
+            "px-5 py-3 text-base leading-relaxed",
             isSent ? "message-bubble-sent" : "message-bubble-received",
           )}
         >
@@ -163,12 +163,12 @@ function ChatPanel({
   return (
     <div className="flex flex-col h-full">
       {/* Chat header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
+      <div className="flex items-center gap-3 py-4 px-5 border-b border-border bg-card shrink-0">
         <Link
           to="/users/$principal"
           params={{ principal: otherPrincipal ?? "" }}
         >
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-11 w-11">
             {otherProfile?.profilePhoto && (
               <AvatarImage src={otherProfile.profilePhoto.getDirectURL()} />
             )}
@@ -178,7 +178,7 @@ function ChatPanel({
           </Avatar>
         </Link>
         <div>
-          <p className="text-sm font-semibold text-foreground">
+          <p className="text-base font-bold text-foreground">
             {otherProfile?.displayName ?? "Anonymous"}
           </p>
           {otherProfile?.location && (
@@ -233,32 +233,32 @@ function ChatPanel({
       </ScrollArea>
 
       {/* Input */}
-      <div className="px-4 py-3 border-t border-border bg-card shrink-0">
+      <div className="px-5 py-4 border-t border-border bg-card shrink-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSend();
           }}
-          className="flex items-center gap-2"
+          className="flex items-center gap-3"
         >
           <Input
             placeholder="Type a message..."
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="flex-1 rounded-full bg-muted border-0 focus-visible:ring-primary"
+            className="flex-1 rounded-full bg-muted border-0 focus-visible:ring-primary py-3 text-base"
             data-ocid="inbox.message.input"
           />
           <Button
             type="submit"
             size="icon"
             disabled={!text.trim() || isSending}
-            className="rounded-full bg-primary text-primary-foreground shrink-0 shadow-paw"
+            className="rounded-full bg-primary text-primary-foreground shrink-0 shadow-paw h-11 w-11"
             data-ocid="inbox.message.submit_button"
           >
             {isSending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Send className="h-4 w-4" />
+              <Send className="h-5 w-5" />
             )}
           </Button>
         </form>
@@ -308,23 +308,23 @@ export default function InboxPage() {
   if (!identity) return null;
 
   return (
-    <div className="container py-0 px-0 md:px-8 md:py-8 max-w-5xl">
-      <div className="bg-card rounded-none md:rounded-2xl border-0 md:border border-border overflow-hidden shadow-xs h-[calc(100vh-8rem)]">
+    <div className="container py-0 px-0 md:px-8 md:py-8 max-w-6xl">
+      <div className="bg-card rounded-none md:rounded-2xl border-0 md:border border-border overflow-hidden shadow-xs h-[calc(100vh-5rem)]">
         <div className="flex h-full">
           {/* Sidebar */}
           <div
             className={cn(
-              "w-full md:w-72 lg:w-80 border-r border-border flex flex-col shrink-0",
+              "w-full md:w-80 lg:w-96 border-r border-border flex flex-col shrink-0",
               "md:flex",
               !showSidebar && "hidden md:flex",
             )}
           >
             {/* Sidebar header */}
-            <div className="px-4 py-4 border-b border-border shrink-0">
-              <h2 className="font-display text-lg font-bold text-foreground">
+            <div className="px-5 py-5 border-b-2 border-border shrink-0">
+              <h2 className="font-display text-xl font-bold text-foreground">
                 Inbox
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {conversations?.length ?? 0} conversation
                 {(conversations?.length ?? 0) !== 1 ? "s" : ""}
               </p>

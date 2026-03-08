@@ -12,21 +12,25 @@ import { useSaveCallerUserProfile } from "../hooks/useQueries";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { login, isLoggingIn, isLoginSuccess, identity } =
-    useInternetIdentity();
+  const { login, isLoggingIn, identity } = useInternetIdentity();
   const { mutateAsync: saveProfile, isPending: isSavingProfile } =
     useSaveCallerUserProfile();
 
   const [captchaPassed, setCaptchaPassed] = useState(false);
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [step, setStep] = useState<"register" | "complete">("register");
+  const [hasAttemptedLogin, setHasAttemptedLogin] = useState(false);
 
-  // After login succeeds, go to complete step
+  // After the II popup completes, identity becomes available.
+  // We use identity (not isLoginSuccess) because isLoginSuccess may revert
+  // to "idle" when the auth client re-initialises on the next render cycle.
   useEffect(() => {
-    if (isLoginSuccess && identity && step === "register") {
+    if (identity && hasAttemptedLogin && step === "register") {
       setStep("complete");
     }
-  }, [isLoginSuccess, identity, step]);
+  }, [identity, hasAttemptedLogin, step]);
 
   const handleRegister = () => {
     if (!captchaPassed) {
@@ -37,6 +41,15 @@ export default function RegisterPage() {
       toast.error("Please enter a display name.");
       return;
     }
+    if (!email.trim()) {
+      toast.error("Please enter your email address.");
+      return;
+    }
+    if (!phone.trim()) {
+      toast.error("Please enter your phone number.");
+      return;
+    }
+    setHasAttemptedLogin(true);
     login();
   };
 
@@ -45,11 +58,21 @@ export default function RegisterPage() {
       toast.error("Display name is required.");
       return;
     }
+    if (!email.trim()) {
+      toast.error("Email is required.");
+      return;
+    }
+    if (!phone.trim()) {
+      toast.error("Phone number is required.");
+      return;
+    }
     try {
       await saveProfile({
         displayName: displayName.trim(),
         bio: "",
         location: "",
+        email: email.trim(),
+        phone: phone.trim(),
       });
       toast.success("Account created! Welcome to HouseForPawws 🐾");
       navigate({ to: "/profile" });
@@ -102,7 +125,7 @@ export default function RegisterPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-sm"
+        className="w-full max-w-md"
       >
         <div className="bg-card rounded-2xl border border-border p-8 shadow-paw">
           <div className="text-center mb-8">
@@ -133,11 +156,47 @@ export default function RegisterPage() {
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address *</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                data-ocid="register.email.input"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number *</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+1 (555) 000-0000"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                data-ocid="register.phone.input"
+              />
+              <p className="text-xs text-muted-foreground bg-muted/60 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                <span>🔒</span>
+                Email and phone are private — only visible to the admin.
+              </p>
+            </div>
+
             <MathCaptcha onValidChange={setCaptchaPassed} />
 
             <Button
               onClick={handleRegister}
-              disabled={isLoggingIn || !captchaPassed || !displayName.trim()}
+              disabled={
+                isLoggingIn ||
+                !captchaPassed ||
+                !displayName.trim() ||
+                !email.trim() ||
+                !phone.trim()
+              }
               className="w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-paw gap-2"
               data-ocid="register.submit_button"
             >

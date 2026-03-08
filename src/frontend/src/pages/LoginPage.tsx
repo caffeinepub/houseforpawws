@@ -2,27 +2,56 @@ import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Loader2, Lock, PawPrint } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import MathCaptcha from "../components/MathCaptcha";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 export default function LoginPage() {
-  const _navigate = useNavigate();
-  const { login, isLoggingIn, isLoginError } = useInternetIdentity();
+  const navigate = useNavigate();
+  const { login, isLoggingIn, isLoginError, identity } = useInternetIdentity();
   const [captchaPassed, setCaptchaPassed] = useState(false);
+  const [hasAttempted, setHasAttempted] = useState(false);
+  const errorToastShown = useRef(false);
+  const hasRedirected = useRef(false);
+
+  // Redirect as soon as identity is available -- works whether status is
+  // "success" or has already reverted to "idle" (which happens after the
+  // auth client re-initialises on mount in the II hook).
+  useEffect(() => {
+    if (identity && hasAttempted && !hasRedirected.current) {
+      hasRedirected.current = true;
+      navigate({ to: "/" });
+    }
+  }, [identity, hasAttempted, navigate]);
+
+  // If already logged in when landing on this page, redirect immediately
+  useEffect(() => {
+    if (identity && !hasAttempted) {
+      navigate({ to: "/" });
+    }
+  }, [identity, hasAttempted, navigate]);
+
+  // Reset captcha and show error toast when login fails after an attempt
+  useEffect(() => {
+    if (hasAttempted && isLoginError && !errorToastShown.current) {
+      errorToastShown.current = true;
+      setCaptchaPassed(false);
+      toast.error("Login failed. Please try again.");
+    }
+    // Reset the ref when error clears so next attempt can show again
+    if (!isLoginError) {
+      errorToastShown.current = false;
+    }
+  }, [hasAttempted, isLoginError]);
 
   const handleLogin = async () => {
     if (!captchaPassed) {
       toast.error("Please complete the security check first.");
       return;
     }
-    try {
-      login();
-      // After login success, useEffect in App.tsx will redirect
-    } catch {
-      toast.error("Login failed. Please try again.");
-    }
+    setHasAttempted(true);
+    login();
   };
 
   return (
@@ -71,7 +100,7 @@ export default function LoginPage() {
               )}
             </Button>
 
-            {isLoginError && (
+            {hasAttempted && isLoginError && (
               <p
                 className="text-sm text-destructive text-center"
                 data-ocid="login.error_state"

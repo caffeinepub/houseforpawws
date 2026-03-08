@@ -39,7 +39,7 @@ import {
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { Pet, Stats, UserProfile } from "../backend";
+import type { FullUserProfile, Pet, Stats } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -72,7 +72,7 @@ function useAdminStats() {
 
 function useAdminAllUsers() {
   const { actor, isFetching: actorFetching } = useActor();
-  return useQuery<Array<[Principal, UserProfile]>>({
+  return useQuery<Array<[Principal, FullUserProfile]>>({
     queryKey: ["adminAllUsers"],
     queryFn: async () => {
       if (!actor) return [];
@@ -308,7 +308,7 @@ interface UserDetailModalProps {
   open: boolean;
   onClose: () => void;
   principal: Principal | null;
-  profile: UserProfile | null;
+  profile: FullUserProfile | null;
   isBanned: boolean;
   onBan: () => void;
   onUnban: () => void;
@@ -371,6 +371,16 @@ function UserDetailModal({
 
           <div className="space-y-2 text-sm">
             <div className="bg-muted/50 rounded-xl p-3 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-medium">Email</span>
+                <span className="text-foreground truncate max-w-[60%]">
+                  {profile.email || "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-medium">Phone</span>
+                <span className="text-foreground">{profile.phone || "—"}</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground font-medium">
                   Location
@@ -442,12 +452,12 @@ function UsersTab() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{
     principal: Principal;
-    profile: UserProfile;
+    profile: FullUserProfile;
   } | null>(null);
 
   const bannedSet = new Set((bannedUsers ?? []).map((p) => p.toString()));
 
-  const handleOpenDetail = (principal: Principal, profile: UserProfile) => {
+  const handleOpenDetail = (principal: Principal, profile: FullUserProfile) => {
     setSelectedUser({ principal, profile });
     setDetailOpen(true);
   };
@@ -505,10 +515,13 @@ function UsersTab() {
               <TableHead className="font-semibold text-foreground/80">
                 User
               </TableHead>
-              <TableHead className="font-semibold text-foreground/80 hidden md:table-cell">
-                Bio
+              <TableHead className="font-semibold text-foreground/80 hidden lg:table-cell">
+                Email
               </TableHead>
-              <TableHead className="font-semibold text-foreground/80 hidden sm:table-cell">
+              <TableHead className="font-semibold text-foreground/80 hidden xl:table-cell">
+                Phone
+              </TableHead>
+              <TableHead className="font-semibold text-foreground/80 hidden md:table-cell">
                 Location
               </TableHead>
               <TableHead className="font-semibold text-foreground/80">
@@ -556,12 +569,17 @@ function UsersTab() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <p className="text-sm text-muted-foreground line-clamp-2 max-w-[200px]">
-                      {profile.bio || "—"}
+                  <TableCell className="hidden lg:table-cell">
+                    <p className="text-sm text-foreground truncate max-w-[180px]">
+                      {profile.email || "—"}
                     </p>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">
+                  <TableCell className="hidden xl:table-cell">
+                    <p className="text-sm text-foreground">
+                      {profile.phone || "—"}
+                    </p>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <p className="text-sm text-foreground">
                       {profile.location || "—"}
                     </p>
@@ -852,9 +870,10 @@ function ClaimAdminPanel() {
         "cookiebiscuitoreochickupicku12345",
       );
     },
-    onSuccess: () => {
-      toast.success("Admin access claimed! Refreshing…");
-      queryClient.invalidateQueries({ queryKey: ["isCallerAdmin"] });
+    onSuccess: async () => {
+      toast.success("Admin access claimed! Loading dashboard…");
+      await queryClient.invalidateQueries({ queryKey: ["isCallerAdmin"] });
+      await queryClient.refetchQueries({ queryKey: ["isCallerAdmin"] });
     },
     onError: () => {
       toast.error("Could not claim admin. It may already be assigned.");
@@ -912,7 +931,11 @@ function ClaimAdminPanel() {
 
 export default function AdminDashboardPage() {
   const { identity } = useInternetIdentity();
-  const { data: isAdmin, isLoading: adminChecking } = useIsCallerAdmin();
+  const {
+    data: isAdmin,
+    isLoading: adminChecking,
+    isFetching: adminFetching,
+  } = useIsCallerAdmin();
 
   // Not logged in
   if (!identity && !adminChecking) {
@@ -938,8 +961,8 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Loading check
-  if (adminChecking) {
+  // Loading check (initial load OR re-fetching after claim)
+  if (adminChecking || (adminFetching && !isAdmin)) {
     return (
       <div
         className="min-h-[calc(100vh-8rem)] flex items-center justify-center"
@@ -948,7 +971,9 @@ export default function AdminDashboardPage() {
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground text-sm">
-            Checking admin access…
+            {adminFetching && !adminChecking
+              ? "Verifying admin access…"
+              : "Checking admin access…"}
           </p>
         </div>
       </div>

@@ -20,10 +20,12 @@ export const _CaffeineStorageRefillResult = IDL.Record({
   'topped_up_amount' : IDL.Opt(IDL.Nat),
 });
 export const ExternalBlob = IDL.Vec(IDL.Nat8);
-export const UserProfile = IDL.Record({
+export const FullUserProfile = IDL.Record({
   'bio' : IDL.Text,
   'displayName' : IDL.Text,
   'profilePhoto' : IDL.Opt(ExternalBlob),
+  'email' : IDL.Text,
+  'phone' : IDL.Text,
   'location' : IDL.Text,
 });
 export const Stats = IDL.Record({
@@ -64,6 +66,16 @@ export const ConversationView = IDL.Record({
   'user1' : IDL.Principal,
   'user2' : IDL.Principal,
 });
+export const PublicUserProfile = IDL.Record({
+  'bio' : IDL.Text,
+  'displayName' : IDL.Text,
+  'profilePhoto' : IDL.Opt(ExternalBlob),
+  'location' : IDL.Text,
+});
+export const UserProfileResult = IDL.Variant({
+  'publicView' : PublicUserProfile,
+  'full' : FullUserProfile,
+});
 
 export const idlService = IDL.Service({
   '_caffeineStorageBlobIsLive' : IDL.Func(
@@ -97,7 +109,7 @@ export const idlService = IDL.Service({
   'adminDeletePet' : IDL.Func([IDL.Text], [], []),
   'adminGetAllUsers' : IDL.Func(
       [],
-      [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
+      [IDL.Vec(IDL.Tuple(IDL.Principal, FullUserProfile))],
       ['query'],
     ),
   'adminGetBannedUsers' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
@@ -108,7 +120,7 @@ export const idlService = IDL.Service({
   'deletePet' : IDL.Func([IDL.Text], [], []),
   'getAdoptedPets' : IDL.Func([IDL.Bool], [IDL.Vec(Pet)], ['query']),
   'getAllPets' : IDL.Func([], [IDL.Vec(Pet)], ['query']),
-  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(FullUserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getConversationParticipants' : IDL.Func(
       [IDL.Text],
@@ -122,11 +134,11 @@ export const idlService = IDL.Service({
   'getPetsBySpecies' : IDL.Func([IDL.Text], [IDL.Vec(Pet)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
-      [IDL.Opt(UserProfile)],
+      [IDL.Opt(UserProfileResult)],
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'saveCallerUserProfile' : IDL.Func([FullUserProfile], [], []),
   'sendMessage' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'startOrGetConversation' : IDL.Func([IDL.Principal], [IDL.Text], []),
   'updatePet' : IDL.Func([IDL.Text, Pet], [], []),
@@ -147,10 +159,12 @@ export const idlFactory = ({ IDL }) => {
     'topped_up_amount' : IDL.Opt(IDL.Nat),
   });
   const ExternalBlob = IDL.Vec(IDL.Nat8);
-  const UserProfile = IDL.Record({
+  const FullUserProfile = IDL.Record({
     'bio' : IDL.Text,
     'displayName' : IDL.Text,
     'profilePhoto' : IDL.Opt(ExternalBlob),
+    'email' : IDL.Text,
+    'phone' : IDL.Text,
     'location' : IDL.Text,
   });
   const Stats = IDL.Record({
@@ -191,6 +205,16 @@ export const idlFactory = ({ IDL }) => {
     'user1' : IDL.Principal,
     'user2' : IDL.Principal,
   });
+  const PublicUserProfile = IDL.Record({
+    'bio' : IDL.Text,
+    'displayName' : IDL.Text,
+    'profilePhoto' : IDL.Opt(ExternalBlob),
+    'location' : IDL.Text,
+  });
+  const UserProfileResult = IDL.Variant({
+    'publicView' : PublicUserProfile,
+    'full' : FullUserProfile,
+  });
   
   return IDL.Service({
     '_caffeineStorageBlobIsLive' : IDL.Func(
@@ -224,7 +248,7 @@ export const idlFactory = ({ IDL }) => {
     'adminDeletePet' : IDL.Func([IDL.Text], [], []),
     'adminGetAllUsers' : IDL.Func(
         [],
-        [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
+        [IDL.Vec(IDL.Tuple(IDL.Principal, FullUserProfile))],
         ['query'],
       ),
     'adminGetBannedUsers' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
@@ -235,7 +259,11 @@ export const idlFactory = ({ IDL }) => {
     'deletePet' : IDL.Func([IDL.Text], [], []),
     'getAdoptedPets' : IDL.Func([IDL.Bool], [IDL.Vec(Pet)], ['query']),
     'getAllPets' : IDL.Func([], [IDL.Vec(Pet)], ['query']),
-    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+    'getCallerUserProfile' : IDL.Func(
+        [],
+        [IDL.Opt(FullUserProfile)],
+        ['query'],
+      ),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getConversationParticipants' : IDL.Func(
         [IDL.Text],
@@ -249,11 +277,11 @@ export const idlFactory = ({ IDL }) => {
     'getPetsBySpecies' : IDL.Func([IDL.Text], [IDL.Vec(Pet)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
-        [IDL.Opt(UserProfile)],
+        [IDL.Opt(UserProfileResult)],
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'saveCallerUserProfile' : IDL.Func([FullUserProfile], [], []),
     'sendMessage' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'startOrGetConversation' : IDL.Func([IDL.Principal], [IDL.Text], []),
     'updatePet' : IDL.Func([IDL.Text, Pet], [], []),

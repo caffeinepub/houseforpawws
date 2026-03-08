@@ -12,12 +12,22 @@ import Int "mo:core/Int";
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   include MixinStorage();
 
-  // Types
-  public type UserProfile = {
+  public type FullUserProfile = {
+    displayName : Text;
+    bio : Text;
+    location : Text;
+    profilePhoto : ?Storage.ExternalBlob;
+    email : Text;
+    phone : Text;
+  };
+
+  public type PublicUserProfile = {
     displayName : Text;
     bio : Text;
     location : Text;
@@ -149,32 +159,50 @@ actor {
   };
 
   var petStore = PetStore.init();
-  let userProfiles = Map.empty<Principal, UserProfile>();
+  let userProfiles = Map.empty<Principal, FullUserProfile>();
   let conversations = Map.empty<Text, Conversation>();
 
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
   // User Profile Functions
-  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
+  public shared ({ caller }) func saveCallerUserProfile(profile : FullUserProfile) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can save profiles");
     };
     userProfiles.add(caller, profile);
   };
 
-  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
+  public query ({ caller }) func getCallerUserProfile() : async ?FullUserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view their profile");
     };
     userProfiles.get(caller);
   };
 
-  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
+  public type UserProfileResult = {
+    #full : FullUserProfile;
+    #publicView : PublicUserProfile;
+  };
+
+  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfileResult {
+    let fullProfile = switch (userProfiles.get(user)) {
+      case (null) { return null };
+      case (?profile) { profile };
     };
-    userProfiles.get(user);
+
+    // Owner or admin can see full profile
+    if (caller == user or AccessControl.isAdmin(accessControlState, caller)) {
+      ?#full(fullProfile);
+    } else {
+      // Others see only public fields
+      ?#publicView({
+        displayName = fullProfile.displayName;
+        bio = fullProfile.bio;
+        location = fullProfile.location;
+        profilePhoto = fullProfile.profilePhoto;
+      });
+    };
   };
 
   // Pet Functions
@@ -397,7 +425,7 @@ actor {
   };
 
   // --- ADMIN FUNCTIONS ---
-  public query ({ caller }) func adminGetAllUsers() : async [(Principal, UserProfile)] {
+  public query ({ caller }) func adminGetAllUsers() : async [(Principal, FullUserProfile)] {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can get all users");
     };
