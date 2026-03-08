@@ -111,10 +111,6 @@ export default function ProfileSetupModal({
               required
               data-ocid="profile_setup.phone.input"
             />
-            <p className="text-xs text-muted-foreground bg-muted/60 rounded-lg px-3 py-2 flex items-center gap-1.5">
-              <span>🔒</span>
-              Email and phone are private — only visible to the admin.
-            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="bio">Bio</Label>
