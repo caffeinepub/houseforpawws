@@ -1,0 +1,86 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RefreshCw } from "lucide-react";
+import { useCallback, useState } from "react";
+
+interface MathCaptchaProps {
+  onValidChange: (valid: boolean) => void;
+}
+
+function generateQuestion() {
+  const ops = ["+", "-"] as const;
+  const op = ops[Math.floor(Math.random() * ops.length)];
+  const a = Math.floor(Math.random() * 10) + 1;
+  const b =
+    op === "+"
+      ? Math.floor(Math.random() * 10) + 1
+      : Math.floor(Math.random() * a) + 1;
+  const answer = op === "+" ? a + b : a - b;
+  return { question: `${a} ${op} ${b}`, answer };
+}
+
+export default function MathCaptcha({ onValidChange }: MathCaptchaProps) {
+  const [captcha, setCaptcha] = useState(generateQuestion);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState(false);
+
+  const regenerate = useCallback(() => {
+    setCaptcha(generateQuestion());
+    setValue("");
+    setError(false);
+    onValidChange(false);
+  }, [onValidChange]);
+
+  const handleChange = (v: string) => {
+    setValue(v);
+    const num = Number.parseInt(v, 10);
+    if (!Number.isNaN(num) && num === captcha.answer) {
+      setError(false);
+      onValidChange(true);
+    } else {
+      setError(v.length > 0);
+      onValidChange(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium text-foreground">
+        Security Check
+      </Label>
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <div className="bg-muted rounded-lg px-4 py-2 text-center font-display text-lg font-semibold tracking-wide text-foreground select-none">
+            What is {captcha.question}?
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={regenerate}
+          className="shrink-0 text-muted-foreground hover:text-primary"
+          data-ocid="captcha.toggle"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+      </div>
+      <Input
+        type="number"
+        placeholder="Your answer"
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        className={
+          error ? "border-destructive focus-visible:ring-destructive" : ""
+        }
+        data-ocid="captcha.input"
+      />
+      {error && (
+        <p className="text-xs text-destructive" data-ocid="captcha.error_state">
+          That's not quite right. Try again!
+        </p>
+      )}
+    </div>
+  );
+}

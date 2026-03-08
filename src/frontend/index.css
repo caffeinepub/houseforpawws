@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── HouseForPawws Font Faces ───────────────────────────────────────── */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Outfit";
+  src: url("/assets/fonts/Outfit.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Design Tokens (Light Mode) ─────────────────────────────────────── */
+@layer base {
+  :root {
+    --radius: 1rem;
+
+    /* Soft pink primary */
+    --primary: 0.72 0.14 340;
+    --primary-foreground: 0.98 0.01 340;
+    --primary-hover: 0.66 0.17 340;
+
+    /* Lavender secondary */
+    --secondary: 0.88 0.06 280;
+    --secondary-foreground: 0.3 0.08 280;
+
+    /* Peach accent */
+    --accent: 0.92 0.07 50;
+    --accent-foreground: 0.35 0.08 50;
+
+    /* Warm cream backgrounds */
+    --background: 0.98 0.01 60;
+    --foreground: 0.22 0.04 340;
+
+    /* Cards / popovers */
+    --card: 1 0 0;
+    --card-foreground: 0.22 0.04 340;
+    --popover: 1 0 0;
+    --popover-foreground: 0.22 0.04 340;
+
+    /* Muted surfaces */
+    --muted: 0.95 0.02 330;
+    --muted-foreground: 0.55 0.04 320;
+
+    /* UI Chrome */
+    --border: 0.88 0.04 330;
+    --input: 0.9 0.04 330;
+    --ring: 0.72 0.14 340;
+
+    /* Destructive */
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+
+    /* Charts */
+    --chart-1: 0.72 0.14 340;
+    --chart-2: 0.72 0.10 280;
+    --chart-3: 0.82 0.09 50;
+    --chart-4: 0.646 0.222 41.116;
+    --chart-5: 0.769 0.188 70.08;
+
+    /* Sidebar */
+    --sidebar: 0.97 0.02 330;
+    --sidebar-foreground: 0.22 0.04 340;
+    --sidebar-primary: 0.72 0.14 340;
+    --sidebar-primary-foreground: 0.98 0.01 340;
+    --sidebar-accent: 0.92 0.07 50;
+    --sidebar-accent-foreground: 0.35 0.08 50;
+    --sidebar-border: 0.88 0.04 330;
+    --sidebar-ring: 0.72 0.14 340;
+
+    /* Custom tokens */
+    --pink-soft: 0.93 0.05 340;
+    --lavender-soft: 0.93 0.04 280;
+    --peach-soft: 0.95 0.06 50;
+    --paw-shadow: 0 4px 20px oklch(0.72 0.14 340 / 0.15);
+  }
+
+  .dark {
+    --background: 0.16 0.03 300;
+    --foreground: 0.95 0.02 340;
+    --card: 0.21 0.04 300;
+    --card-foreground: 0.95 0.02 340;
+    --popover: 0.24 0.04 300;
+    --popover-foreground: 0.95 0.02 340;
+    --primary: 0.78 0.12 340;
+    --primary-foreground: 0.15 0.03 300;
+    --primary-hover: 0.84 0.10 340;
+    --secondary: 0.28 0.06 280;
+    --secondary-foreground: 0.88 0.04 280;
+    --accent: 0.32 0.07 50;
+    --accent-foreground: 0.92 0.07 50;
+    --muted: 0.26 0.04 300;
+    --muted-foreground: 0.66 0.04 310;
+    --border: 0.3 0.05 300;
+    --input: 0.28 0.05 300;
+    --ring: 0.78 0.12 340;
+    --destructive: 0.704 0.191 22.216;
+    --destructive-foreground: 0.205 0 0;
+    --chart-1: 0.78 0.12 340;
+    --chart-2: 0.72 0.10 280;
+    --chart-3: 0.82 0.09 50;
+    --chart-4: 0.627 0.265 303.9;
+    --chart-5: 0.645 0.246 16.439;
+    --sidebar: 0.21 0.04 300;
+    --sidebar-foreground: 0.95 0.02 340;
+    --sidebar-primary: 0.78 0.12 340;
+    --sidebar-primary-foreground: 0.15 0.03 300;
+    --sidebar-accent: 0.32 0.07 50;
+    --sidebar-accent-foreground: 0.92 0.07 50;
+    --sidebar-border: 0.3 0.05 300;
+    --sidebar-ring: 0.78 0.12 340;
+    --pink-soft: 0.26 0.05 340;
+    --lavender-soft: 0.26 0.05 280;
+    --peach-soft: 0.26 0.06 50;
+    --paw-shadow: 0 4px 20px oklch(0 0 0 / 0.4);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Outfit", sans-serif;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: "Bricolage Grotesque", sans-serif;
+  }
+}
+
+/* ── Custom Utilities ───────────────────────────────────────────────── */
+@layer utilities {
+  .paw-shadow {
+    box-shadow: var(--paw-shadow);
+  }
+
+  .bg-pink-soft {
+    background-color: oklch(var(--pink-soft));
+  }
+
+  .bg-lavender-soft {
+    background-color: oklch(var(--lavender-soft));
+  }
+
+  .bg-peach-soft {
+    background-color: oklch(var(--peach-soft));
+  }
+
+  .pet-card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .pet-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px oklch(0.72 0.14 340 / 0.2);
+  }
+
+  .message-bubble-sent {
+    background: oklch(var(--primary));
+    color: oklch(var(--primary-foreground));
+    border-radius: 1.2rem 1.2rem 0.25rem 1.2rem;
+  }
+
+  .message-bubble-received {
+    background: oklch(var(--muted));
+    color: oklch(var(--foreground));
+    border-radius: 1.2rem 1.2rem 1.2rem 0.25rem;
+  }
+
+  .noise-bg {
+    position: relative;
+  }
+
+  .noise-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+}
