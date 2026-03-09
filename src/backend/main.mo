@@ -424,6 +424,11 @@ actor {
     (conversation.user1, conversation.user2);
   };
 
+  // Force-claim admin if no admin exists yet (used for first-time setup)
+  public shared ({ caller }) func forceClaimAdminIfNoneExists() : async Bool {
+    AccessControl.forceClaimAdminIfNoneExists(accessControlState, caller);
+  };
+
   // --- ADMIN FUNCTIONS ---
   public query ({ caller }) func adminGetAllUsers() : async [(Principal, FullUserProfile)] {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
@@ -499,4 +504,3 @@ actor {
     bannedPrincipalIter;
   };
 };
-

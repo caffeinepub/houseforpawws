@@ -32,7 +32,6 @@ import {
   AlertTriangle,
   Ban,
   CheckCircle,
-  Loader2,
   MessageSquare,
   PawPrint,
   Shield,
@@ -43,9 +42,15 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { FullUserProfile, Pet, Stats } from "../backend";
+import type { FullUserProfile, Pet, Stats, backendInterface } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+
+// Extends the generated backendInterface with forceClaimAdminIfNoneExists,
+// which is present in the canister but not yet emitted by the bindgen tool.
+interface AdminBackendInterface extends backendInterface {
+  forceClaimAdminIfNoneExists(): Promise<boolean>;
+}
 
 // ── Admin Query Hooks ─────────────────────────────────────────────────────────
 
@@ -908,7 +913,10 @@ export default function AdminDashboardPage() {
       !adminFetched
     )
       return;
-    (actor as any)
+    // Cast to AdminBackendInterface which extends backendInterface with
+    // forceClaimAdminIfNoneExists -- present in the canister but not yet
+    // emitted by the bindgen tool in the generated backend.ts.
+    (actor as AdminBackendInterface)
       .forceClaimAdminIfNoneExists()
       .then((claimed) => {
         if (claimed) {

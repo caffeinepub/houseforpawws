@@ -27,10 +27,4 @@ mixin (accessControlState : AccessControl.AccessControlState) {
   public query ({ caller }) func isCallerAdmin() : async Bool {
     AccessControl.isAdmin(accessControlState, caller);
   };
-
-  // Force-claim admin if no admin currently exists in the roles map.
-  // Returns true if admin was successfully claimed, false if an admin already exists.
-  public shared ({ caller }) func forceClaimAdminIfNoneExists() : async Bool {
-    AccessControl.forceClaimAdminIfNoneExists(accessControlState, caller);
-  };
 };

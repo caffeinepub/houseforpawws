@@ -83,6 +83,7 @@ export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createPet(pet: Pet): Promise<string>;
     deletePet(petId: string): Promise<void>;
+    forceClaimAdminIfNoneExists(): Promise<boolean>;
     getAdoptedPets(isAdopted: boolean): Promise<Array<Pet>>;
     getAllPets(): Promise<Array<Pet>>;
     getCallerUserProfile(): Promise<FullUserProfile | null>;
