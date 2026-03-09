@@ -64,24 +64,4 @@ module {
   public func isAdmin(state : AccessControlState, caller : Principal) : Bool {
     getUserRole(state, caller) == #admin;
   };
-
-  // Returns true if any admin exists in the roles map
-  public func hasAnyAdmin(state : AccessControlState) : Bool {
-    let roles = state.userRoles.values().toArray();
-    var found = false;
-    for (role in roles.vals()) {
-      if (role == #admin) { found := true };
-    };
-    found;
-  };
-
-  // Force-assign caller as admin only if no admin currently exists.
-  // Bypasses the adminAssigned flag to recover from broken state.
-  public func forceClaimAdminIfNoneExists(state : AccessControlState, caller : Principal) : Bool {
-    if (caller.isAnonymous()) { return false };
-    if (hasAnyAdmin(state)) { return false };
-    state.userRoles.add(caller, #admin);
-    state.adminAssigned := true;
-    true;
-  };
 };

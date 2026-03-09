@@ -426,7 +426,14 @@ actor {
 
   // Force-claim admin if no admin exists yet (used for first-time setup)
   public shared ({ caller }) func forceClaimAdminIfNoneExists() : async Bool {
-    AccessControl.forceClaimAdminIfNoneExists(accessControlState, caller);
+    if (caller.isAnonymous()) { return false };
+    if (not accessControlState.adminAssigned) {
+      accessControlState.userRoles.add(caller, #admin);
+      accessControlState.adminAssigned := true;
+      true;
+    } else {
+      false;
+    };
   };
 
   // --- ADMIN FUNCTIONS ---

@@ -42,15 +42,15 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { FullUserProfile, Pet, Stats, backendInterface } from "../backend";
-import { useActor } from "../hooks/useActor";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import type { FullUserProfile, Pet, Stats } from "../backend";
 
-// Extends the generated backendInterface with forceClaimAdminIfNoneExists,
-// which is present in the canister but not yet emitted by the bindgen tool.
-interface AdminBackendInterface extends backendInterface {
+// forceClaimAdminIfNoneExists is present in backend.d.ts (canister) but not
+// always emitted in the generated backend.ts interface. Extend locally.
+interface ExtendedBackend {
   forceClaimAdminIfNoneExists(): Promise<boolean>;
 }
+import { useActor } from "../hooks/useActor";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 // ── Admin Query Hooks ─────────────────────────────────────────────────────────
 
@@ -66,10 +66,6 @@ function useIsCallerAdmin() {
     enabled: !!actor && !actorFetching && !!identity,
     staleTime: 30_000,
     gcTime: 60_000,
-    // When the actor's mass-invalidation sweep marks this query stale, keep
-    // the last confirmed value visible instead of briefly returning undefined.
-    // This prevents the "Access Denied" flash that occurred when isAdmin
-    // transiently reset to false mid-refetch.
     placeholderData: keepPreviousData,
   });
 }
@@ -98,6 +94,18 @@ function useAdminAllUsers() {
   });
 }
 
+function useAdminAllPets() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery<Pet[]>({
+    queryKey: ["adminAllPets"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllPets();
+    },
+    enabled: !!actor && !actorFetching,
+  });
+}
+
 function useAdminBannedUsers() {
   const { actor, isFetching: actorFetching } = useActor();
   return useQuery<Principal[]>({
@@ -110,6 +118,8 @@ function useAdminBannedUsers() {
   });
 }
 
+// ── Mutation Hooks ────────────────────────────────────────────────────────────
+
 function useAdminBanUser() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
@@ -119,11 +129,11 @@ function useAdminBanUser() {
       await actor.adminBanUser(user);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["adminBannedUsers"] });
       queryClient.invalidateQueries({ queryKey: ["adminAllUsers"] });
-      toast.success("User banned successfully.");
+      queryClient.invalidateQueries({ queryKey: ["adminBannedUsers"] });
+      toast.success("User banned");
     },
-    onError: () => toast.error("Failed to ban user."),
+    onError: () => toast.error("Failed to ban user"),
   });
 }
 
@@ -136,11 +146,11 @@ function useAdminUnbanUser() {
       await actor.adminUnbanUser(user);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["adminBannedUsers"] });
       queryClient.invalidateQueries({ queryKey: ["adminAllUsers"] });
-      toast.success("User unbanned successfully.");
+      queryClient.invalidateQueries({ queryKey: ["adminBannedUsers"] });
+      toast.success("User unbanned");
     },
-    onError: () => toast.error("Failed to unban user."),
+    onError: () => toast.error("Failed to unban user"),
   });
 }
 
@@ -153,186 +163,55 @@ function useAdminDeletePet() {
       await actor.adminDeletePet(petId);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminAllPets"] });
       queryClient.invalidateQueries({ queryKey: ["allPets"] });
-      toast.success("Pet listing deleted.");
+      toast.success("Pet removed");
     },
-    onError: () => toast.error("Failed to delete pet listing."),
-  });
-}
-
-function useAdminGetAllPets() {
-  const { actor, isFetching: actorFetching } = useActor();
-  return useQuery<Pet[]>({
-    queryKey: ["allPets"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getAllPets();
-    },
-    enabled: !!actor && !actorFetching,
+    onError: () => toast.error("Failed to delete pet"),
   });
 }
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
 
-interface StatCardProps {
-  title: string;
-  value: bigint | undefined;
-  icon: React.ReactNode;
-  color: string;
-  isLoading: boolean;
-  index: number;
-}
-
 function StatCard({
-  title,
+  icon: Icon,
+  label,
   value,
-  icon,
-  color,
-  isLoading,
-  index,
-}: StatCardProps) {
+  loading,
+  color = "primary",
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number | undefined;
+  loading?: boolean;
+  color?: string;
+}) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: index * 0.08 }}
-      data-ocid="admin.stats.card"
-    >
-      <Card className="border border-border shadow-sm hover:shadow-md transition-shadow bg-card">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            {title}
-          </CardTitle>
-          <div
-            className={`w-9 h-9 rounded-xl flex items-center justify-center ${color}`}
-          >
-            {icon}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton
-              className="h-9 w-24"
-              data-ocid="admin.stats.loading_state"
-            />
+    <Card className="border-border shadow-paw">
+      <CardContent className="p-5 flex items-center gap-4">
+        <div
+          className={`w-12 h-12 rounded-2xl bg-${color}/15 flex items-center justify-center flex-shrink-0`}
+        >
+          <Icon className={`h-6 w-6 text-${color}`} />
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+            {label}
+          </p>
+          {loading ? (
+            <Skeleton className="h-7 w-16 mt-1" />
           ) : (
-            <p className="text-3xl font-display font-bold text-foreground">
-              {value !== undefined ? Number(value).toLocaleString() : "—"}
-            </p>
+            <p className="text-2xl font-bold text-foreground">{value ?? "—"}</p>
           )}
-        </CardContent>
-      </Card>
-    </motion.div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-// ── Overview Tab ──────────────────────────────────────────────────────────────
+// ── User Detail Dialog ────────────────────────────────────────────────────────
 
-function OverviewTab() {
-  const { data: stats, isLoading } = useAdminStats();
-
-  const cards = [
-    {
-      title: "Total Users",
-      value: stats?.totalUsers,
-      icon: <Users className="h-4 w-4 text-white" />,
-      color: "bg-primary",
-    },
-    {
-      title: "Total Pets Listed",
-      value: stats?.totalPets,
-      icon: <PawPrint className="h-4 w-4 text-white" />,
-      color: "bg-[oklch(0.72_0.12_280)]",
-    },
-    {
-      title: "Adopted Pets",
-      value: stats?.adoptedPets,
-      icon: <CheckCircle className="h-4 w-4 text-white" />,
-      color: "bg-[oklch(0.65_0.14_150)]",
-    },
-    {
-      title: "Active Conversations",
-      value: stats?.totalConversations,
-      icon: <MessageSquare className="h-4 w-4 text-white" />,
-      color: "bg-[oklch(0.72_0.12_50)]",
-    },
-  ];
-
-  const adoptionRate =
-    stats && Number(stats.totalPets) > 0
-      ? Math.round((Number(stats.adoptedPets) / Number(stats.totalPets)) * 100)
-      : 0;
-
-  return (
-    <section data-ocid="admin.overview.section">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {cards.map((card, i) => (
-          <StatCard
-            key={card.title}
-            {...card}
-            isLoading={isLoading}
-            index={i}
-          />
-        ))}
-      </div>
-
-      {/* Adoption rate bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.35 }}
-      >
-        <Card className="border border-border bg-card">
-          <CardHeader>
-            <CardTitle className="font-display text-lg text-foreground">
-              Adoption Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-6 w-full rounded-full" />
-            ) : (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>{adoptionRate}% of listed pets adopted</span>
-                  <span>
-                    {stats
-                      ? `${Number(stats.adoptedPets)} / ${Number(stats.totalPets)}`
-                      : "—"}
-                  </span>
-                </div>
-                <div className="h-3 rounded-full bg-muted overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full bg-primary"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${adoptionRate}%` }}
-                    transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
-                  />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-    </section>
-  );
-}
-
-// ── User Detail Modal ─────────────────────────────────────────────────────────
-
-interface UserDetailModalProps {
-  open: boolean;
-  onClose: () => void;
-  principal: Principal | null;
-  profile: FullUserProfile | null;
-  isBanned: boolean;
-  onBan: () => void;
-  onUnban: () => void;
-  isBanning: boolean;
-  isUnbanning: boolean;
-}
-
-function UserDetailModal({
+function UserDetailDialog({
   open,
   onClose,
   principal,
@@ -340,20 +219,28 @@ function UserDetailModal({
   isBanned,
   onBan,
   onUnban,
-  isBanning,
-  isUnbanning,
-}: UserDetailModalProps) {
-  if (!principal || !profile) return null;
-
-  const principalStr = principal.toString();
-  const initials = profile.displayName?.slice(0, 2).toUpperCase() ?? "??";
+}: {
+  open: boolean;
+  onClose: () => void;
+  principal: string;
+  profile: FullUserProfile;
+  isBanned: boolean;
+  onBan: () => void;
+  onUnban: () => void;
+}) {
+  const initials = profile.displayName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const photoURL = profile.profilePhoto
+    ? profile.profilePhoto.getDirectURL()
+    : undefined;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent
-        className="sm:max-w-md bg-card border border-border rounded-2xl"
-        data-ocid="admin.users.detail.dialog"
-      >
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md" data-ocid="admin.user.dialog">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">
             User Details
@@ -361,94 +248,101 @@ function UserDetailModal({
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 border-2 border-border">
-              {profile.profilePhoto && (
-                <AvatarImage
-                  src={profile.profilePhoto.getDirectURL()}
-                  alt={profile.displayName}
-                />
+            <Avatar className="h-14 w-14">
+              {photoURL && (
+                <AvatarImage src={photoURL} alt={profile.displayName} />
               )}
-              <AvatarFallback className="bg-primary/20 text-primary text-lg font-bold">
+              <AvatarFallback className="bg-primary/20 text-primary font-bold">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-display font-semibold text-lg text-foreground">
-                {profile.displayName || "Unnamed"}
+              <p className="font-bold text-foreground text-lg">
+                {profile.displayName}
               </p>
-              <Badge
-                variant={isBanned ? "destructive" : "secondary"}
-                className="mt-1"
-              >
-                {isBanned ? "Banned" : "Active"}
-              </Badge>
+              {isBanned && (
+                <Badge variant="destructive" className="text-xs">
+                  Banned
+                </Badge>
+              )}
             </div>
           </div>
 
           <div className="space-y-2 text-sm">
-            <div className="bg-muted/50 rounded-xl p-3 space-y-1.5">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-medium">Email</span>
-                <span className="text-foreground truncate max-w-[60%]">
-                  {profile.email || "—"}
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-24 flex-shrink-0">
+                Principal
+              </span>
+              <span className="font-mono text-xs break-all text-foreground">
+                {principal}
+              </span>
+            </div>
+            {profile.email && (
+              <div className="flex gap-2">
+                <span className="text-muted-foreground w-24 flex-shrink-0">
+                  Email
                 </span>
+                <span className="text-foreground">{profile.email}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-medium">Phone</span>
-                <span className="text-foreground">{profile.phone || "—"}</span>
+            )}
+            {profile.phone && (
+              <div className="flex gap-2">
+                <span className="text-muted-foreground w-24 flex-shrink-0">
+                  Phone
+                </span>
+                <span className="text-foreground">{profile.phone}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-medium">
+            )}
+            {profile.location && (
+              <div className="flex gap-2">
+                <span className="text-muted-foreground w-24 flex-shrink-0">
                   Location
                 </span>
-                <span className="text-foreground">
-                  {profile.location || "—"}
-                </span>
+                <span className="text-foreground">{profile.location}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-medium">Bio</span>
-                <span className="text-foreground text-right max-w-[60%] line-clamp-3">
-                  {profile.bio || "—"}
+            )}
+            {profile.bio && (
+              <div className="flex gap-2">
+                <span className="text-muted-foreground w-24 flex-shrink-0">
+                  Bio
                 </span>
+                <span className="text-foreground">{profile.bio}</span>
               </div>
-            </div>
-            <div className="bg-muted/50 rounded-xl p-3">
-              <p className="text-muted-foreground font-medium mb-1 text-xs">
-                Principal ID
-              </p>
-              <p className="text-foreground font-mono text-xs break-all">
-                {principalStr}
-              </p>
-            </div>
+            )}
           </div>
         </div>
-        <DialogFooter className="gap-2 flex-row justify-end">
+        <DialogFooter className="gap-2">
           <Button
             variant="outline"
             onClick={onClose}
-            className="rounded-full"
-            data-ocid="admin.users.detail.close_button"
+            data-ocid="admin.user.close_button"
           >
             Close
           </Button>
           {isBanned ? (
             <Button
-              onClick={onUnban}
-              disabled={isUnbanning}
-              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => {
+                onUnban();
+                onClose();
+              }}
+              className="gap-2"
+              data-ocid="admin.user.confirm_button"
             >
-              <UserCheck className="h-4 w-4 mr-1.5" />
-              {isUnbanning ? "Unbanning..." : "Unban User"}
+              <UserCheck className="h-4 w-4" />
+              Unban User
             </Button>
           ) : (
             <Button
               variant="destructive"
-              onClick={onBan}
-              disabled={isBanning}
-              className="rounded-full"
+              onClick={() => {
+                onBan();
+                onClose();
+              }}
+              className="gap-2"
+              data-ocid="admin.user.delete_button"
             >
-              <Ban className="h-4 w-4 mr-1.5" />
-              {isBanning ? "Banning..." : "Ban User"}
+              <Ban className="h-4 w-4" />
+              Ban User
             </Button>
           )}
         </DialogFooter>
@@ -457,44 +351,29 @@ function UserDetailModal({
   );
 }
 
-// ── Users Tab ────────────────────────────────────────────────────────────────
+// ── Users Table ───────────────────────────────────────────────────────────────
 
-function UsersTab() {
-  const { data: users, isLoading: usersLoading } = useAdminAllUsers();
+function UsersTable() {
+  const { data: users, isLoading } = useAdminAllUsers();
   const { data: bannedUsers } = useAdminBannedUsers();
-  const banMutation = useAdminBanUser();
-  const unbanMutation = useAdminUnbanUser();
+  const { mutate: banUser } = useAdminBanUser();
+  const { mutate: unbanUser } = useAdminUnbanUser();
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{
-    principal: Principal;
+    principal: string;
     profile: FullUserProfile;
   } | null>(null);
 
-  const bannedSet = new Set((bannedUsers ?? []).map((p) => p.toString()));
+  const bannedSet = new Set(
+    (bannedUsers ?? []).map((p: Principal) => p.toString()),
+  );
 
-  const handleOpenDetail = (principal: Principal, profile: FullUserProfile) => {
-    setSelectedUser({ principal, profile });
-    setDetailOpen(true);
-  };
-
-  const handleBan = (principal: Principal) => {
-    banMutation.mutate(principal, {
-      onSuccess: () => setDetailOpen(false),
-    });
-  };
-
-  const handleUnban = (principal: Principal) => {
-    unbanMutation.mutate(principal, {
-      onSuccess: () => setDetailOpen(false),
-    });
-  };
-
-  if (usersLoading) {
+  if (isLoading) {
     return (
-      <div className="space-y-3" data-ocid="admin.users.loading_state">
-        {["u1", "u2", "u3", "u4", "u5"].map((k) => (
-          <Skeleton key={k} className="h-14 w-full rounded-xl" />
+      <div className="space-y-2" data-ocid="admin.users.loading_state">
+        {["a", "b", "c", "d", "e"].map((k) => (
+          <Skeleton key={k} className="h-12 w-full rounded-xl" />
         ))}
       </div>
     );
@@ -503,71 +382,54 @@ function UsersTab() {
   if (!users || users.length === 0) {
     return (
       <div
-        className="flex flex-col items-center justify-center py-16 text-center"
+        className="text-center py-12 text-muted-foreground"
         data-ocid="admin.users.empty_state"
       >
-        <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
-          <Users className="h-7 w-7 text-muted-foreground" />
-        </div>
-        <p className="font-display text-lg font-semibold text-foreground">
-          No users yet
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Registered users will appear here.
-        </p>
+        <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
+        <p>No users registered yet.</p>
       </div>
     );
   }
 
   return (
     <>
-      <div
-        className="rounded-2xl border border-border overflow-hidden bg-card"
-        data-ocid="admin.users.table"
-      >
-        <Table>
+      <div className="rounded-2xl border border-border overflow-hidden">
+        <Table data-ocid="admin.users.table">
           <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="font-semibold text-foreground/80">
-                User
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80 hidden lg:table-cell">
-                Email
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80 hidden xl:table-cell">
-                Phone
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80 hidden md:table-cell">
-                Location
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80">
-                Status
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80 text-right">
-                Actions
-              </TableHead>
+            <TableRow className="bg-muted/50">
+              <TableHead>User</TableHead>
+              <TableHead className="hidden md:table-cell">Email</TableHead>
+              <TableHead className="hidden md:table-cell">Phone</TableHead>
+              <TableHead className="hidden lg:table-cell">Location</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.map(([principal, profile], idx) => {
               const principalStr = principal.toString();
               const isBanned = bannedSet.has(principalStr);
-              const initials =
-                profile.displayName?.slice(0, 2).toUpperCase() ?? "??";
-              const rowIndex = idx + 1;
+              const initials = profile.displayName
+                .split(" ")
+                .map((w) => w[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
+              const photoURL = profile.profilePhoto
+                ? profile.profilePhoto.getDirectURL()
+                : undefined;
 
               return (
                 <TableRow
                   key={principalStr}
-                  className="hover:bg-muted/20 transition-colors"
-                  data-ocid={`admin.users.row.${rowIndex}`}
+                  data-ocid={`admin.users.item.${idx + 1}`}
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 shrink-0">
-                        {profile.profilePhoto && (
+                      <Avatar className="h-8 w-8">
+                        {photoURL && (
                           <AvatarImage
-                            src={profile.profilePhoto.getDirectURL()}
+                            src={photoURL}
                             alt={profile.displayName}
                           />
                         )}
@@ -576,73 +438,74 @@ function UsersTab() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium text-foreground text-sm">
-                          {profile.displayName || "Unnamed"}
+                        <p className="font-medium text-sm text-foreground">
+                          {profile.displayName}
                         </p>
                         <p className="text-xs text-muted-foreground font-mono truncate max-w-[120px]">
-                          {principalStr.slice(0, 14)}…
+                          {principalStr.slice(0, 12)}…
                         </p>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <p className="text-sm text-foreground truncate max-w-[180px]">
-                      {profile.email || "—"}
-                    </p>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                    {profile.email || "—"}
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell">
-                    <p className="text-sm text-foreground">
-                      {profile.phone || "—"}
-                    </p>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                    {profile.phone || "—"}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <p className="text-sm text-foreground">
-                      {profile.location || "—"}
-                    </p>
+                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                    {profile.location || "—"}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={isBanned ? "destructive" : "secondary"}
-                      className={
-                        isBanned
-                          ? ""
-                          : "bg-[oklch(0.9_0.08_150)] text-[oklch(0.4_0.12_150)] border-[oklch(0.8_0.1_150)]"
-                      }
-                    >
-                      {isBanned ? "Banned" : "Active"}
-                    </Badge>
+                    {isBanned ? (
+                      <Badge variant="destructive" className="text-xs">
+                        Banned
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-xs text-success border-success/30"
+                      >
+                        Active
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button
-                        variant="ghost"
                         size="sm"
-                        className="rounded-full text-xs hover:bg-primary/10 hover:text-primary"
-                        onClick={() => handleOpenDetail(principal, profile)}
-                        data-ocid={`admin.users.detail.open_modal_button.${rowIndex}`}
+                        variant="ghost"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setSelectedUser({ principal: principalStr, profile });
+                          setDetailOpen(true);
+                        }}
+                        data-ocid={`admin.users.edit_button.${idx + 1}`}
                       >
-                        View Details
+                        View
                       </Button>
                       {isBanned ? (
                         <Button
-                          variant="outline"
                           size="sm"
-                          className="rounded-full text-xs"
-                          onClick={() => handleUnban(principal)}
-                          disabled={unbanMutation.isPending}
-                          data-ocid={`admin.users.ban_button.${rowIndex}`}
+                          variant="ghost"
+                          className="h-7 text-xs text-success"
+                          onClick={() =>
+                            unbanUser(principal as unknown as Principal)
+                          }
+                          data-ocid={`admin.users.confirm_button.${idx + 1}`}
                         >
                           <UserCheck className="h-3 w-3 mr-1" />
                           Unban
                         </Button>
                       ) : (
                         <Button
-                          variant="outline"
                           size="sm"
-                          className="rounded-full text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
-                          onClick={() => handleBan(principal)}
-                          disabled={banMutation.isPending}
-                          data-ocid={`admin.users.ban_button.${rowIndex}`}
+                          variant="ghost"
+                          className="h-7 text-xs text-destructive hover:text-destructive"
+                          onClick={() =>
+                            banUser(principal as unknown as Principal)
+                          }
+                          data-ocid={`admin.users.delete_button.${idx + 1}`}
                         >
                           <Ban className="h-3 w-3 mr-1" />
                           Ban
@@ -657,45 +520,38 @@ function UsersTab() {
         </Table>
       </div>
 
-      <UserDetailModal
-        open={detailOpen}
-        onClose={() => setDetailOpen(false)}
-        principal={selectedUser?.principal ?? null}
-        profile={selectedUser?.profile ?? null}
-        isBanned={
-          selectedUser
-            ? bannedSet.has(selectedUser.principal.toString())
-            : false
-        }
-        onBan={() => selectedUser && handleBan(selectedUser.principal)}
-        onUnban={() => selectedUser && handleUnban(selectedUser.principal)}
-        isBanning={banMutation.isPending}
-        isUnbanning={unbanMutation.isPending}
-      />
+      {selectedUser && (
+        <UserDetailDialog
+          open={detailOpen}
+          onClose={() => {
+            setDetailOpen(false);
+            setSelectedUser(null);
+          }}
+          principal={selectedUser.principal}
+          profile={selectedUser.profile}
+          isBanned={bannedSet.has(selectedUser.principal)}
+          onBan={() => banUser(selectedUser.principal as unknown as Principal)}
+          onUnban={() =>
+            unbanUser(selectedUser.principal as unknown as Principal)
+          }
+        />
+      )}
     </>
   );
 }
 
-// ── Pets Tab ──────────────────────────────────────────────────────────────────
+// ── Pets Table ────────────────────────────────────────────────────────────────
 
-function PetsTab() {
-  const { data: pets, isLoading } = useAdminGetAllPets();
-  const deleteMutation = useAdminDeletePet();
+function PetsTable() {
+  const { data: pets, isLoading } = useAdminAllPets();
+  const { mutate: deletePet } = useAdminDeletePet();
   const [confirmPetId, setConfirmPetId] = useState<string | null>(null);
-
-  const handleDeleteConfirm = () => {
-    if (!confirmPetId) return;
-    deleteMutation.mutate(confirmPetId, {
-      onSuccess: () => setConfirmPetId(null),
-      onError: () => setConfirmPetId(null),
-    });
-  };
 
   if (isLoading) {
     return (
-      <div className="space-y-3" data-ocid="admin.pets.loading_state">
-        {["p1", "p2", "p3", "p4", "p5"].map((k) => (
-          <Skeleton key={k} className="h-14 w-full rounded-xl" />
+      <div className="space-y-2" data-ocid="admin.pets.loading_state">
+        {["a", "b", "c", "d", "e"].map((k) => (
+          <Skeleton key={k} className="h-12 w-full rounded-xl" />
         ))}
       </div>
     );
@@ -704,167 +560,140 @@ function PetsTab() {
   if (!pets || pets.length === 0) {
     return (
       <div
-        className="flex flex-col items-center justify-center py-16 text-center"
+        className="text-center py-12 text-muted-foreground"
         data-ocid="admin.pets.empty_state"
       >
-        <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
-          <PawPrint className="h-7 w-7 text-muted-foreground" />
-        </div>
-        <p className="font-display text-lg font-semibold text-foreground">
-          No pet listings
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Pet listings will appear here once users post them.
-        </p>
+        <PawPrint className="h-10 w-10 mx-auto mb-3 opacity-40" />
+        <p>No pets listed yet.</p>
       </div>
     );
   }
 
   return (
     <>
-      <div
-        className="rounded-2xl border border-border overflow-hidden bg-card"
-        data-ocid="admin.pets.table"
-      >
-        <Table>
+      <div className="rounded-2xl border border-border overflow-hidden">
+        <Table data-ocid="admin.pets.table">
           <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="font-semibold text-foreground/80">
-                Pet
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80 hidden sm:table-cell">
-                Species / Breed
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80 hidden md:table-cell">
-                Location
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80">
-                Status
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80 hidden lg:table-cell">
-                Owner
-              </TableHead>
-              <TableHead className="font-semibold text-foreground/80 text-right">
-                Actions
-              </TableHead>
+            <TableRow className="bg-muted/50">
+              <TableHead>Pet</TableHead>
+              <TableHead className="hidden md:table-cell">Species</TableHead>
+              <TableHead className="hidden md:table-cell">Location</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pets.map((pet, idx) => {
-              const rowIndex = idx + 1;
-              const ownerStr = pet.ownerId.toString();
-
-              return (
-                <TableRow
-                  key={pet.id}
-                  className="hover:bg-muted/20 transition-colors"
-                  data-ocid={`admin.pets.row.${rowIndex}`}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      {pet.photoBlobs.length > 0 ? (
+            {pets.map((pet, idx) => (
+              <TableRow key={pet.id} data-ocid={`admin.pets.item.${idx + 1}`}>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-secondary/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {pet.photoBlobs && pet.photoBlobs.length > 0 ? (
                         <img
                           src={pet.photoBlobs[0].getDirectURL()}
                           alt={pet.name}
-                          className="h-10 w-10 rounded-xl object-cover shrink-0 border border-border"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                          <PawPrint className="h-5 w-5 text-muted-foreground" />
-                        </div>
+                        <PawPrint className="h-4 w-4 text-secondary" />
                       )}
-                      <div>
-                        <p className="font-medium text-foreground text-sm">
-                          {pet.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {pet.age}
-                        </p>
-                      </div>
                     </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <p className="text-sm text-foreground capitalize">
-                      {pet.species}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{pet.breed}</p>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <p className="text-sm text-foreground">
-                      {pet.location || "—"}
-                    </p>
-                  </TableCell>
-                  <TableCell>
+                    <div>
+                      <p className="font-medium text-sm text-foreground">
+                        {pet.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {pet.breed}
+                      </p>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="hidden md:table-cell text-sm text-muted-foreground capitalize">
+                  {pet.species}
+                </TableCell>
+                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                  {pet.location || "—"}
+                </TableCell>
+                <TableCell>
+                  {pet.isAdopted ? (
                     <Badge
-                      className={
-                        pet.isAdopted
-                          ? "bg-[oklch(0.9_0.08_150)] text-[oklch(0.4_0.12_150)] border-[oklch(0.8_0.1_150)]"
-                          : "bg-primary/15 text-primary border-primary/30"
-                      }
+                      variant="outline"
+                      className="text-xs text-success border-success/30"
                     >
-                      {pet.isAdopted ? "Adopted" : "Available"}
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Adopted
                     </Badge>
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <p className="text-xs text-muted-foreground font-mono truncate max-w-[120px]">
-                      {ownerStr.slice(0, 14)}…
-                    </p>
-                  </TableCell>
-                  <TableCell className="text-right">
+                  ) : (
+                    <Badge variant="secondary" className="text-xs">
+                      Available
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <Link to="/pets/$id" params={{ id: pet.id }}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs"
+                        data-ocid={`admin.pets.edit_button.${idx + 1}`}
+                      >
+                        View
+                      </Button>
+                    </Link>
                     <Button
-                      variant="ghost"
                       size="sm"
-                      className="rounded-full text-xs text-destructive hover:bg-destructive/10"
+                      variant="ghost"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
                       onClick={() => setConfirmPetId(pet.id)}
-                      data-ocid={`admin.pets.delete_button.${rowIndex}`}
+                      data-ocid={`admin.pets.delete_button.${idx + 1}`}
                     >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      Delete
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Remove
                     </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
 
-      {/* Confirm delete dialog */}
+      {/* Delete confirmation dialog */}
       <Dialog
         open={!!confirmPetId}
-        onOpenChange={(v) => !v && setConfirmPetId(null)}
+        onOpenChange={(o) => !o && setConfirmPetId(null)}
       >
-        <DialogContent
-          className="sm:max-w-sm bg-card border border-border rounded-2xl"
-          data-ocid="admin.pets.confirm.dialog"
-        >
+        <DialogContent data-ocid="admin.pets.dialog">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Delete Pet Listing?
+            <DialogTitle className="font-display text-xl">
+              Remove Pet Listing?
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             This will permanently remove the pet listing. This action cannot be
             undone.
           </p>
-          <DialogFooter className="gap-2 flex-row justify-end">
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               onClick={() => setConfirmPetId(null)}
-              className="rounded-full"
-              data-ocid="admin.pets.confirm.cancel_button"
+              data-ocid="admin.pets.cancel_button"
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDeleteConfirm}
-              disabled={deleteMutation.isPending}
-              className="rounded-full"
-              data-ocid="admin.pets.confirm.confirm_button"
+              onClick={() => {
+                if (confirmPetId) {
+                  deletePet(confirmPetId);
+                  setConfirmPetId(null);
+                }
+              }}
+              data-ocid="admin.pets.confirm_button"
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              <Trash2 className="h-4 w-4 mr-2" />
+              Remove
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -873,14 +702,18 @@ function PetsTab() {
   );
 }
 
-// ── Admin Dashboard Page ──────────────────────────────────────────────────────
+// ── Main Dashboard ────────────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
   const { identity, isInitializing } = useInternetIdentity();
   const { actor, isFetching: actorFetching } = useActor();
   const queryClient = useQueryClient();
-  // wasAdminRef: once confirmed admin, stays true to prevent dashboard from hiding
+
+  // wasAdminRef: once confirmed admin, stays true to prevent dashboard from
+  // hiding during background refetches that briefly return isAdmin=undefined.
   const wasAdminRef = useRef(false);
+  // Guard: auto-claim should only fire once per page visit.
+  const hasAttemptedClaimRef = useRef(false);
 
   const {
     data: isAdmin,
@@ -888,49 +721,60 @@ export default function AdminDashboardPage() {
     isFetched: adminFetched,
   } = useIsCallerAdmin();
 
-  // Latch: once we have confirmed the user IS admin, lock wasAdminRef
+  // Latch: once we have confirmed the user IS admin, lock wasAdminRef.
   useEffect(() => {
     if (isAdmin === true) {
       wasAdminRef.current = true;
     }
   }, [isAdmin]);
 
-  // Reset latch on logout (identity gone)
+  // Reset latch on logout.
   useEffect(() => {
     if (!identity) {
       wasAdminRef.current = false;
+      hasAttemptedClaimRef.current = false;
     }
   }, [identity]);
 
-  // Auto-claim admin if none exists yet: fires once when actor is ready,
-  // identity is set, and we definitively know the caller is NOT admin.
+  // Auto-claim admin if none exists yet.
+  // Fires exactly once per session (guarded by hasAttemptedClaimRef) when:
+  //   - actor is authenticated and ready
+  //   - identity is present
+  //   - we definitively know the caller is NOT yet admin
   useEffect(() => {
     if (
       !actor ||
       !identity ||
       actorFetching ||
       isAdmin !== false ||
-      !adminFetched
+      !adminFetched ||
+      hasAttemptedClaimRef.current
     )
       return;
-    // Cast to AdminBackendInterface which extends backendInterface with
-    // forceClaimAdminIfNoneExists -- present in the canister but not yet
-    // emitted by the bindgen tool in the generated backend.ts.
-    (actor as AdminBackendInterface)
+
+    hasAttemptedClaimRef.current = true;
+
+    (actor as unknown as ExtendedBackend)
       .forceClaimAdminIfNoneExists()
       .then((claimed) => {
         if (claimed) {
           queryClient.invalidateQueries({ queryKey: ["isCallerAdmin"] });
+        } else {
+          // Admin is already assigned to someone else -- nothing to do.
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Function not available or call failed -- reset so a retry is possible
+        // on manual refresh, but don't loop.
+      });
   }, [actor, identity, actorFetching, isAdmin, adminFetched, queryClient]);
 
-  // Show loading only on the very first admin check (no data yet).
-  // Do NOT show loading for background refetches once we know the answer.
+  const { data: stats, isLoading: statsLoading } = useAdminStats();
+
+  // Show loading spinner only on the very first admin check (no data yet).
   const showLoading = isInitializing || (adminChecking && !adminFetched);
 
-  // Not logged in (and auth has finished initializing)
+  // Not logged in
   if (!identity && !isInitializing && !adminChecking) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
@@ -954,7 +798,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Loading spinner (initial check only, not background refetches)
+  // Loading spinner (initial check only)
   if (showLoading) {
     return (
       <div
@@ -971,8 +815,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Not admin (and we have a definitive answer) — show access denied with
-  // a spinner while the auto-claim effect races to grant access.
+  // Not admin (definitive answer, and auto-claim hasn't resolved yet or failed)
   if (!isAdmin && !wasAdminRef.current) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
@@ -989,83 +832,162 @@ export default function AdminDashboardPage() {
             Access Denied
           </h1>
           <p className="text-muted-foreground text-sm mb-6">
-            You don&apos;t have permission to access the admin dashboard.
+            {hasAttemptedClaimRef.current
+              ? "Admin access is already assigned to another account."
+              : "You do not have admin privileges."}
           </p>
-          <Link to="/">
-            <Button
-              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-              data-ocid="admin.back.button"
-            >
-              Back to Home
-            </Button>
-          </Link>
+          {hasAttemptedClaimRef.current && (
+            <p className="text-xs text-muted-foreground">
+              If you believe this is an error, please refresh the page.
+            </p>
+          )}
+          <div className="mt-4">
+            {!hasAttemptedClaimRef.current && (
+              <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto" />
+            )}
+          </div>
         </motion.div>
       </div>
     );
   }
 
+  // ── Dashboard ──────────────────────────────────────────────────────────────
+
   return (
-    <div className="container py-8 max-w-6xl">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto px-4 py-8">
       <motion.div
-        initial={{ opacity: 0, y: -12 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="mb-8"
+        transition={{ duration: 0.4 }}
       >
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-            <Shield className="h-5 w-5 text-primary-foreground" />
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center">
+            <Shield className="h-6 w-6 text-primary" />
           </div>
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">
               Admin Dashboard
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Manage users, listings, and monitor platform activity
+            <p className="text-muted-foreground text-sm">
+              Manage users and moderate pet listings
             </p>
           </div>
         </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <StatCard
+            icon={Users}
+            label="Total Users"
+            value={
+              stats?.totalUsers !== undefined
+                ? Number(stats.totalUsers)
+                : undefined
+            }
+            loading={statsLoading}
+            color="primary"
+          />
+          <StatCard
+            icon={PawPrint}
+            label="Total Pets"
+            value={
+              stats?.totalPets !== undefined
+                ? Number(stats.totalPets)
+                : undefined
+            }
+            loading={statsLoading}
+            color="secondary"
+          />
+          <StatCard
+            icon={CheckCircle}
+            label="Adopted"
+            value={
+              stats?.adoptedPets !== undefined
+                ? Number(stats.adoptedPets)
+                : undefined
+            }
+            loading={statsLoading}
+            color="success"
+          />
+          <StatCard
+            icon={MessageSquare}
+            label="Conversations"
+            value={
+              stats?.totalConversations !== undefined
+                ? Number(stats.totalConversations)
+                : undefined
+            }
+            loading={statsLoading}
+            color="accent"
+          />
+        </div>
+
+        {/* Tabs */}
+        <Tabs defaultValue="users" data-ocid="admin.tab">
+          <TabsList className="mb-6 bg-muted rounded-2xl p-1">
+            <TabsTrigger
+              value="users"
+              className="rounded-xl gap-2"
+              data-ocid="admin.users.tab"
+            >
+              <Users className="h-4 w-4" />
+              Users
+            </TabsTrigger>
+            <TabsTrigger
+              value="pets"
+              className="rounded-xl gap-2"
+              data-ocid="admin.pets.tab"
+            >
+              <PawPrint className="h-4 w-4" />
+              Pets
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users">
+            <Card className="border-border shadow-paw">
+              <CardHeader>
+                <CardTitle className="font-display text-xl flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Registered Users
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <UsersTable />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pets">
+            <Card className="border-border shadow-paw">
+              <CardHeader>
+                <CardTitle className="font-display text-xl flex items-center gap-2">
+                  <PawPrint className="h-5 w-5 text-secondary" />
+                  Pet Listings
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PetsTable />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Warnings */}
+        {stats && Number(stats.adoptedPets) > Number(stats.totalPets) * 0.9 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 flex items-center gap-3 p-4 rounded-2xl bg-warning/10 border border-warning/20 text-warning"
+            data-ocid="admin.success_state"
+          >
+            <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+            <p className="text-sm font-medium">
+              Over 90% of pets have been adopted — great work!
+            </p>
+          </motion.div>
+        )}
       </motion.div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="overview">
-        <TabsList className="bg-muted/50 rounded-xl p-1 mb-6 border border-border">
-          <TabsTrigger
-            value="overview"
-            className="rounded-lg font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm"
-            data-ocid="admin.overview.tab"
-          >
-            Overview
-          </TabsTrigger>
-          <TabsTrigger
-            value="users"
-            className="rounded-lg font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm"
-            data-ocid="admin.users.tab"
-          >
-            Users
-          </TabsTrigger>
-          <TabsTrigger
-            value="pets"
-            className="rounded-lg font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm"
-            data-ocid="admin.pets.tab"
-          >
-            Pet Listings
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview">
-          <OverviewTab />
-        </TabsContent>
-
-        <TabsContent value="users">
-          <UsersTab />
-        </TabsContent>
-
-        <TabsContent value="pets">
-          <PetsTab />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
