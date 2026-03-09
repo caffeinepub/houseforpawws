@@ -19,6 +19,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 import PetCard from "../components/PetCard";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useGetAllPets,
@@ -26,8 +27,11 @@ import {
   useSaveCallerUserProfile,
 } from "../hooks/useQueries";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export default function ProfilePage() {
   const { identity, isInitializing } = useInternetIdentity();
+  const { actor, isFetching: actorFetching } = useActor();
   const navigate = useNavigate();
   const {
     data: profile,
@@ -88,6 +92,16 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
+    // Wait up to 3s for the actor if it's still initializing
+    let attempts = 0;
+    while ((!actor || actorFetching) && attempts < 6) {
+      await sleep(500);
+      attempts++;
+    }
+    if (!actor) {
+      toast.error("Still connecting — please wait a moment and try again.");
+      return;
+    }
     try {
       await saveProfile({
         displayName: displayName.trim(),

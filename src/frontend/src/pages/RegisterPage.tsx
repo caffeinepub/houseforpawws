@@ -7,12 +7,16 @@ import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import MathCaptcha from "../components/MathCaptcha";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useSaveCallerUserProfile } from "../hooks/useQueries";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { login, isLoggingIn, identity } = useInternetIdentity();
+  const { actor, isFetching: actorFetching } = useActor();
   const { mutateAsync: saveProfile, isPending: isSavingProfile } =
     useSaveCallerUserProfile();
 
@@ -70,6 +74,19 @@ export default function RegisterPage() {
       toast.error("Phone number is required.");
       return;
     }
+
+    // Wait up to 3s for the actor to be ready — it may still be initializing
+    // right after the Internet Identity popup closes.
+    let attempts = 0;
+    while ((!actor || actorFetching) && attempts < 6) {
+      await sleep(500);
+      attempts++;
+    }
+    if (!actor) {
+      toast.error("Still connecting — please wait a moment and try again.");
+      return;
+    }
+
     try {
       await saveProfile({
         displayName: displayName.trim(),
@@ -105,14 +122,14 @@ export default function RegisterPage() {
             </p>
             <Button
               onClick={handleCompleteProfile}
-              disabled={isSavingProfile}
+              disabled={isSavingProfile || actorFetching || !actor}
               className="w-full rounded-full bg-primary text-primary-foreground gap-2"
               data-ocid="register.complete.submit_button"
             >
-              {isSavingProfile ? (
+              {isSavingProfile || actorFetching || !actor ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
+                  {isSavingProfile ? "Saving..." : "Connecting..."}
                 </>
               ) : (
                 "Complete Profile 🐾"

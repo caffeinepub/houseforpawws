@@ -61,13 +61,17 @@ function RootLayout() {
   const isAuthenticated = !!identity;
 
   // Only show profile setup when ALL conditions are met:
-  // 1. Auth fully initialized, user authenticated, not logging in
-  // 2. Profile query completed (isFetched) and not loading/refetching
-  // 3. Profile is explicitly null
+  // 1. Auth fully initialized, user authenticated, not actively logging in
+  // 2. Profile query completed (isFetched) and not in any loading/refetching state
+  // 3. Profile is explicitly null (not undefined -- undefined means "not yet fetched")
   // 4. We have NEVER confirmed a non-null profile for this session
-  // 5. Not a background sweep (profileRefetching guard)
-  // The extra !profileRefetching guard prevents the modal from flashing
-  // during actor-triggered background query sweeps.
+  //
+  // Using `profile === null` (not `!profile`) is intentional:
+  //   - undefined  → query hasn't run yet, don't show modal
+  //   - null       → backend confirmed no profile exists, show modal
+  //
+  // !profileRefetching prevents the modal from flashing during the
+  // actor-triggered background invalidation sweep that happens on login.
   const showProfileSetup =
     !isInitializing &&
     !isLoggingIn &&

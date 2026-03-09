@@ -21,13 +21,17 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Principal } from "@icp-sdk/core/principal";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   Ban,
   CheckCircle,
-  Key,
   Loader2,
   MessageSquare,
   PawPrint,
@@ -40,7 +44,6 @@ import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { FullUserProfile, Pet, Stats } from "../backend";
-import { UserRole } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -58,6 +61,11 @@ function useIsCallerAdmin() {
     enabled: !!actor && !actorFetching && !!identity,
     staleTime: 30_000,
     gcTime: 60_000,
+    // When the actor's mass-invalidation sweep marks this query stale, keep
+    // the last confirmed value visible instead of briefly returning undefined.
+    // This prevents the "Access Denied" flash that occurred when isAdmin
+    // transiently reset to false mid-refetch.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -860,89 +868,14 @@ function PetsTab() {
   );
 }
 
-// ── Claim Admin Panel ─────────────────────────────────────────────────────────
-
-interface ClaimAdminPanelProps {
-  onClaimed: () => void;
-}
-
-function ClaimAdminPanel({ onClaimed }: ClaimAdminPanelProps) {
-  const { actor } = useActor();
-  const { identity } = useInternetIdentity();
-
-  const claimMutation = useMutation({
-    mutationFn: async () => {
-      if (!actor || !identity) throw new Error("Not authenticated");
-      await actor.assignCallerUserRole(identity.getPrincipal(), UserRole.admin);
-    },
-    onSuccess: () => {
-      toast.success("Admin access granted! Verifying…");
-      // Notify parent to start polling for admin confirmation
-      onClaimed();
-    },
-    onError: () => {
-      toast.error("Could not claim admin. It may already be assigned.");
-    },
-  });
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 0.15 }}
-      className="w-full max-w-sm mt-6"
-    >
-      <Card className="border border-border bg-card shadow-sm rounded-2xl overflow-hidden">
-        <CardHeader className="pb-3 pt-5 px-5">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-              <Key className="h-4.5 w-4.5 text-primary" />
-            </div>
-            <CardTitle className="font-display text-base text-foreground">
-              Claim Admin Access
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="px-5 pb-5">
-          <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-            Are you the app owner? Click below to claim admin access. This can
-            only be done once.
-          </p>
-          <Button
-            onClick={() => claimMutation.mutate()}
-            disabled={claimMutation.isPending}
-            className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium"
-            data-ocid="admin.claim.submit_button"
-          >
-            {claimMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Claiming…
-              </>
-            ) : (
-              <>
-                <Shield className="h-4 w-4 mr-2" />
-                Claim Admin
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
-
 // ── Admin Dashboard Page ──────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
   const { identity, isInitializing } = useInternetIdentity();
+  const { actor, isFetching: actorFetching } = useActor();
   const queryClient = useQueryClient();
-  // hasClaimed tracks that the user clicked "Claim Admin" in this session
-  const hasClaimed = useRef(false);
   // wasAdminRef: once confirmed admin, stays true to prevent dashboard from hiding
   const wasAdminRef = useRef(false);
-  // claimPending: true from the moment Claim is clicked until isAdmin confirmed true
-  const [claimPending, setClaimPending] = useState(false);
 
   const {
     data: isAdmin,
@@ -950,46 +883,44 @@ export default function AdminDashboardPage() {
     isFetched: adminFetched,
   } = useIsCallerAdmin();
 
-  // Latch: once we have confirmed the user IS admin, never go back to loading.
-  if (isAdmin === true) {
-    wasAdminRef.current = true;
-    // Admin is confirmed -- clear the pending state
-    if (claimPending) {
-      setClaimPending(false);
+  // Latch: once we have confirmed the user IS admin, lock wasAdminRef
+  useEffect(() => {
+    if (isAdmin === true) {
+      wasAdminRef.current = true;
     }
-  }
+  }, [isAdmin]);
 
-  // Reset latches on logout (identity gone)
+  // Reset latch on logout (identity gone)
   useEffect(() => {
     if (!identity) {
       wasAdminRef.current = false;
-      hasClaimed.current = false;
-      setClaimPending(false);
     }
   }, [identity]);
 
-  // After claiming, poll until isAdmin becomes true (max 10s)
+  // Auto-claim admin if none exists yet: fires once when actor is ready,
+  // identity is set, and we definitively know the caller is NOT admin.
   useEffect(() => {
-    if (!claimPending) return;
-    let attempts = 0;
-    const poll = setInterval(async () => {
-      attempts++;
-      await queryClient.refetchQueries({ queryKey: ["isCallerAdmin"] });
-      if (wasAdminRef.current || attempts >= 10) {
-        clearInterval(poll);
-        setClaimPending(false);
-      }
-    }, 800);
-    return () => clearInterval(poll);
-  }, [claimPending, queryClient]);
+    if (
+      !actor ||
+      !identity ||
+      actorFetching ||
+      isAdmin !== false ||
+      !adminFetched
+    )
+      return;
+    (actor as any)
+      .forceClaimAdminIfNoneExists()
+      .then((claimed) => {
+        if (claimed) {
+          queryClient.invalidateQueries({ queryKey: ["isCallerAdmin"] });
+        }
+      })
+      .catch(() => {});
+  }, [actor, identity, actorFetching, isAdmin, adminFetched, queryClient]);
 
-  // Show loading when:
-  // 1. Auth is still initializing
-  // 2. The admin query is on its very first fetch (no data yet)
-  // 3. The user just claimed admin and we're waiting to confirm
-  // DO NOT show loading for background refetches once we know the answer.
-  const showLoading =
-    isInitializing || (adminChecking && !adminFetched) || claimPending;
+  // Show loading only on the very first admin check (no data yet).
+  // Do NOT show loading for background refetches once we know the answer.
+  const showLoading = isInitializing || (adminChecking && !adminFetched);
 
   // Not logged in (and auth has finished initializing)
   if (!identity && !isInitializing && !adminChecking) {
@@ -1025,51 +956,42 @@ export default function AdminDashboardPage() {
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground text-sm">
-            {hasClaimed.current
-              ? "Verifying admin access…"
-              : "Checking admin access…"}
+            Checking admin access…
           </p>
         </div>
       </div>
     );
   }
 
-  // Not admin (and we have a definitive answer)
+  // Not admin (and we have a definitive answer) — show access denied with
+  // a spinner while the auto-claim effect races to grant access.
   if (!isAdmin && !wasAdminRef.current) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
-        <div className="flex flex-col items-center w-full max-w-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center w-full"
-            data-ocid="admin.error_state"
-          >
-            <div className="w-16 h-16 rounded-full bg-destructive/15 flex items-center justify-center mx-auto mb-4">
-              <Shield className="h-8 w-8 text-destructive" />
-            </div>
-            <h1 className="font-display text-2xl font-bold text-foreground mb-2">
-              Access Denied
-            </h1>
-            <p className="text-muted-foreground text-sm mb-6">
-              You don't have permission to access the admin dashboard.
-            </p>
-            <Link to="/">
-              <Button className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
-                Back to Home
-              </Button>
-            </Link>
-          </motion.div>
-
-          {!!identity && (
-            <ClaimAdminPanel
-              onClaimed={() => {
-                hasClaimed.current = true;
-                setClaimPending(true);
-              }}
-            />
-          )}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center max-w-sm"
+          data-ocid="admin.error_state"
+        >
+          <div className="w-16 h-16 rounded-full bg-destructive/15 flex items-center justify-center mx-auto mb-4">
+            <Shield className="h-8 w-8 text-destructive" />
+          </div>
+          <h1 className="font-display text-2xl font-bold text-foreground mb-2">
+            Access Denied
+          </h1>
+          <p className="text-muted-foreground text-sm mb-6">
+            You don&apos;t have permission to access the admin dashboard.
+          </p>
+          <Link to="/">
+            <Button
+              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+              data-ocid="admin.back.button"
+            >
+              Back to Home
+            </Button>
+          </Link>
+        </motion.div>
       </div>
     );
   }

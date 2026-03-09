@@ -12,12 +12,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, PawPrint } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useActor } from "../hooks/useActor";
 import { useSaveCallerUserProfile } from "../hooks/useQueries";
 
 interface ProfileSetupModalProps {
   open: boolean;
   onComplete: () => void;
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function ProfileSetupModal({
   open,
@@ -30,10 +33,23 @@ export default function ProfileSetupModal({
   const [location, setLocation] = useState("");
   const [saved, setSaved] = useState(false);
   const { mutateAsync: saveProfile, isPending } = useSaveCallerUserProfile();
+  const { actor, isFetching: actorFetching } = useActor();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!displayName.trim() || !email.trim() || !phone.trim() || saved) return;
+
+    // Wait up to 3 seconds for the actor to be ready (race condition after login)
+    let attempts = 0;
+    while ((!actor || actorFetching) && attempts < 6) {
+      await sleep(500);
+      attempts++;
+    }
+    if (!actor) {
+      toast.error("Still connecting — please wait a moment and try again.");
+      return;
+    }
+
     try {
       // Mark as saved immediately so the modal doesn't re-open while
       // the query invalidation/refetch is in flight

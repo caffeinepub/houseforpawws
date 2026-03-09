@@ -34,33 +34,53 @@ function normaliseProfileResult(
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
-  const { isInitializing } = useInternetIdentity();
+  const { isInitializing, identity } = useInternetIdentity();
+
+  // The auth hook's `finally` block unconditionally resets loginStatus to
+  // "idle" after init -- even after a successful login.  That makes
+  // `isInitializing` briefly flip true→false→true→false on every login,
+  // which would disable this query for a tick and cause the profile to flash
+  // null.  We therefore gate on the actor being present (actor is only created
+  // once identity is stable) rather than on isInitializing.
+  //
+  // We still wait for the very first initialisation to complete (no actor yet)
+  // so anonymous users don't see a spurious ProfileSetupModal.
+  const actorReady = !!actor && !actorFetching;
+
   const query = useQuery<FullUserProfile | null>({
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
       return actor.getCallerUserProfile();
     },
-    // Don't fire until auth is fully initialized AND the actor is ready
-    enabled: !isInitializing && !!actor && !actorFetching,
-    // Retry a couple of times to handle transient actor-not-ready errors
+    enabled: actorReady,
     retry: 2,
     retryDelay: 1000,
-    // Keep previously fetched profile data while re-fetching to avoid
-    // "null flash" that incorrectly triggers the ProfileSetupModal.
-    // keepPreviousData ensures that during a background refetch triggered by
-    // the actor's query-invalidation sweep, the last confirmed value is still
-    // returned instead of temporarily returning undefined/null.
+    // Hold the last known value during background refetches so callers never
+    // see a spurious null that would re-open the ProfileSetupModal.
     staleTime: 30_000,
     placeholderData: keepPreviousData,
+    // Deduplicate rapid successive fetches triggered by the actor invalidation
+    // sweep that fires on every identity change.
+    refetchOnWindowFocus: false,
   });
+
+  // isLoading = true only on the genuine first fetch (no data at all yet).
+  // Background refetches are invisible to callers.
+  const hasData = query.data !== undefined;
+  const firstLoad =
+    !hasData && (isInitializing || !actorReady || query.isLoading);
+
   return {
     ...query,
-    isLoading: isInitializing || actorFetching || query.isLoading,
-    isFetched: !isInitializing && !!actor && query.isFetched,
-    // isRefetching is exposed so callers can distinguish "first load" from
-    // "background refresh triggered by actor change".
+    isLoading: firstLoad,
+    // isFetched: true once we have confirmed the actor ran at least one fetch.
+    isFetched: actorReady && query.isFetched,
+    // isRefetching lets callers distinguish first-load from background refresh.
     isRefetching: query.isFetching && query.isFetched,
+    // Expose the stable identity reference so App.tsx can use it as a
+    // session-change signal without depending on the flaky loginStatus.
+    identity,
   };
 }
 
@@ -75,6 +95,7 @@ export function useGetUserProfile(principal: string | undefined) {
       return normaliseProfileResult(result);
     },
     enabled: !!actor && !actorFetching && !!principal,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -91,6 +112,7 @@ export function useGetFullUserProfile(principal: string | undefined) {
       return null;
     },
     enabled: !!actor && !actorFetching && !!principal,
+    placeholderData: keepPreviousData,
   });
 }
 
