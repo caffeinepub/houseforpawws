@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Loader2, PawPrint, UserPlus } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import MathCaptcha from "../components/MathCaptcha";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
@@ -21,16 +21,20 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<"register" | "complete">("register");
-  const [hasAttemptedLogin, setHasAttemptedLogin] = useState(false);
+  // Use a ref (not state) so that setting it never triggers a re-render that
+  // could create a race with the brief identity-disappear / re-appear window
+  // caused by the auth client re-initializing after the II popup closes.
+  const hasAttemptedLoginRef = useRef(false);
 
-  // After the II popup completes, identity becomes available.
-  // We use identity (not isLoginSuccess) because isLoginSuccess may revert
-  // to "idle" when the auth client re-initialises on the next render cycle.
+  // Advance to the "complete" step as soon as identity is present AND the
+  // user has actually clicked the register button in this session.
+  // Using a ref for hasAttemptedLogin means this effect re-runs only when
+  // identity changes -- the ref change itself doesn't schedule a re-render.
   useEffect(() => {
-    if (identity && hasAttemptedLogin && step === "register") {
+    if (identity && hasAttemptedLoginRef.current && step === "register") {
       setStep("complete");
     }
-  }, [identity, hasAttemptedLogin, step]);
+  }, [identity, step]);
 
   const handleRegister = () => {
     if (!captchaPassed) {
@@ -49,7 +53,7 @@ export default function RegisterPage() {
       toast.error("Please enter your phone number.");
       return;
     }
-    setHasAttemptedLogin(true);
+    hasAttemptedLoginRef.current = true;
     login();
   };
 
@@ -73,6 +77,7 @@ export default function RegisterPage() {
         location: "",
         email: email.trim(),
         phone: phone.trim(),
+        profilePhoto: undefined,
       });
       toast.success("Account created! Welcome to HouseForPawws 🐾");
       navigate({ to: "/profile" });

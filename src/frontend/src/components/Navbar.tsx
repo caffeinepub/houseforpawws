@@ -44,12 +44,6 @@ export default function Navbar() {
   });
 
   const isAuthenticated = !!identity;
-  const _unreadCount =
-    conversations?.reduce(
-      (acc, c) => acc + (c.messages.length > 0 ? 0 : 0),
-      0,
-    ) ?? 0;
-  // Simple unread: just show total conversation count as a badge indicator
   const hasConversations = (conversations?.length ?? 0) > 0;
 
   const handleLogout = async () => {

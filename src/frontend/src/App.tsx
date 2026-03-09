@@ -7,6 +7,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
 import ProfileSetupModal from "./components/ProfileSetupModal";
@@ -26,26 +27,56 @@ import SettingsPage from "./pages/SettingsPage";
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 function RootLayout() {
-  const { identity, isInitializing } = useInternetIdentity();
+  const { identity, isInitializing, isLoggingIn } = useInternetIdentity();
   const {
     data: profile,
     isLoading: profileLoading,
     isFetched,
+    isRefetching: profileRefetching,
   } = useGetCallerUserProfile();
   const queryClient = useQueryClient();
 
+  // Once the profile has been confirmed as non-null for this identity session,
+  // we never want to show the setup modal again (even during the brief re-init
+  // window where `profile` may temporarily appear stale/null).
+  const profileEverLoadedRef = useRef(false);
+  // Track which identity principal the ref belongs to so it resets on logout.
+  const trackedPrincipalRef = useRef<string | undefined>(undefined);
+
+  const currentPrincipal = identity?.getPrincipal().toString();
+
+  // Reset the "ever loaded" guard when the identity changes (logout / switch).
+  useEffect(() => {
+    if (currentPrincipal !== trackedPrincipalRef.current) {
+      trackedPrincipalRef.current = currentPrincipal;
+      profileEverLoadedRef.current = false;
+    }
+  }, [currentPrincipal]);
+
+  // Mark that we've confirmed a real profile exists for this session.
+  if (profile != null && currentPrincipal === trackedPrincipalRef.current) {
+    profileEverLoadedRef.current = true;
+  }
+
   const isAuthenticated = !!identity;
-  // Only show profile setup when:
-  // 1. Auth is fully initialized (not still loading)
-  // 2. User is authenticated
-  // 3. Profile query has completed (isFetched) and is not currently loading
-  // 4. Profile is explicitly null (not undefined, which means "not yet fetched")
+
+  // Only show profile setup when ALL conditions are met:
+  // 1. Auth fully initialized, user authenticated, not logging in
+  // 2. Profile query completed (isFetched) and not loading/refetching
+  // 3. Profile is explicitly null
+  // 4. We have NEVER confirmed a non-null profile for this session
+  // 5. Not a background sweep (profileRefetching guard)
+  // The extra !profileRefetching guard prevents the modal from flashing
+  // during actor-triggered background query sweeps.
   const showProfileSetup =
     !isInitializing &&
+    !isLoggingIn &&
     isAuthenticated &&
     !profileLoading &&
+    !profileRefetching &&
     isFetched &&
-    profile === null;
+    profile === null &&
+    !profileEverLoadedRef.current;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

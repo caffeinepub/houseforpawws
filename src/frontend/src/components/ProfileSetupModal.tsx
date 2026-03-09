@@ -44,6 +44,7 @@ export default function ProfileSetupModal({
         location: location.trim(),
         email: email.trim(),
         phone: phone.trim(),
+        profilePhoto: undefined,
       });
       toast.success("Welcome to HouseForPawws! 🐾");
       onComplete();

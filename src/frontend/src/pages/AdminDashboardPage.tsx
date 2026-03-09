@@ -37,9 +37,10 @@ import {
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { FullUserProfile, Pet, Stats } from "../backend";
+import { UserRole } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -55,6 +56,8 @@ function useIsCallerAdmin() {
       return actor.isCallerAdmin();
     },
     enabled: !!actor && !actorFetching && !!identity,
+    staleTime: 30_000,
+    gcTime: 60_000,
   });
 }
 
@@ -859,21 +862,23 @@ function PetsTab() {
 
 // ── Claim Admin Panel ─────────────────────────────────────────────────────────
 
-function ClaimAdminPanel() {
+interface ClaimAdminPanelProps {
+  onClaimed: () => void;
+}
+
+function ClaimAdminPanel({ onClaimed }: ClaimAdminPanelProps) {
   const { actor } = useActor();
-  const queryClient = useQueryClient();
+  const { identity } = useInternetIdentity();
 
   const claimMutation = useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error("Not authenticated");
-      await actor._initializeAccessControlWithSecret(
-        "cookiebiscuitoreochickupicku12345",
-      );
+      if (!actor || !identity) throw new Error("Not authenticated");
+      await actor.assignCallerUserRole(identity.getPrincipal(), UserRole.admin);
     },
-    onSuccess: async () => {
-      toast.success("Admin access claimed! Loading dashboard…");
-      await queryClient.invalidateQueries({ queryKey: ["isCallerAdmin"] });
-      await queryClient.refetchQueries({ queryKey: ["isCallerAdmin"] });
+    onSuccess: () => {
+      toast.success("Admin access granted! Verifying…");
+      // Notify parent to start polling for admin confirmation
+      onClaimed();
     },
     onError: () => {
       toast.error("Could not claim admin. It may already be assigned.");
@@ -930,15 +935,64 @@ function ClaimAdminPanel() {
 // ── Admin Dashboard Page ──────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
-  const { identity } = useInternetIdentity();
+  const { identity, isInitializing } = useInternetIdentity();
+  const queryClient = useQueryClient();
+  // hasClaimed tracks that the user clicked "Claim Admin" in this session
+  const hasClaimed = useRef(false);
+  // wasAdminRef: once confirmed admin, stays true to prevent dashboard from hiding
+  const wasAdminRef = useRef(false);
+  // claimPending: true from the moment Claim is clicked until isAdmin confirmed true
+  const [claimPending, setClaimPending] = useState(false);
+
   const {
     data: isAdmin,
     isLoading: adminChecking,
-    isFetching: adminFetching,
+    isFetched: adminFetched,
   } = useIsCallerAdmin();
 
-  // Not logged in
-  if (!identity && !adminChecking) {
+  // Latch: once we have confirmed the user IS admin, never go back to loading.
+  if (isAdmin === true) {
+    wasAdminRef.current = true;
+    // Admin is confirmed -- clear the pending state
+    if (claimPending) {
+      setClaimPending(false);
+    }
+  }
+
+  // Reset latches on logout (identity gone)
+  useEffect(() => {
+    if (!identity) {
+      wasAdminRef.current = false;
+      hasClaimed.current = false;
+      setClaimPending(false);
+    }
+  }, [identity]);
+
+  // After claiming, poll until isAdmin becomes true (max 10s)
+  useEffect(() => {
+    if (!claimPending) return;
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      await queryClient.refetchQueries({ queryKey: ["isCallerAdmin"] });
+      if (wasAdminRef.current || attempts >= 10) {
+        clearInterval(poll);
+        setClaimPending(false);
+      }
+    }, 800);
+    return () => clearInterval(poll);
+  }, [claimPending, queryClient]);
+
+  // Show loading when:
+  // 1. Auth is still initializing
+  // 2. The admin query is on its very first fetch (no data yet)
+  // 3. The user just claimed admin and we're waiting to confirm
+  // DO NOT show loading for background refetches once we know the answer.
+  const showLoading =
+    isInitializing || (adminChecking && !adminFetched) || claimPending;
+
+  // Not logged in (and auth has finished initializing)
+  if (!identity && !isInitializing && !adminChecking) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
@@ -961,8 +1015,8 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Loading check (initial load OR re-fetching after claim)
-  if (adminChecking || (adminFetching && !isAdmin)) {
+  // Loading spinner (initial check only, not background refetches)
+  if (showLoading) {
     return (
       <div
         className="min-h-[calc(100vh-8rem)] flex items-center justify-center"
@@ -971,7 +1025,7 @@ export default function AdminDashboardPage() {
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground text-sm">
-            {adminFetching && !adminChecking
+            {hasClaimed.current
               ? "Verifying admin access…"
               : "Checking admin access…"}
           </p>
@@ -980,8 +1034,8 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Not admin
-  if (!isAdmin) {
+  // Not admin (and we have a definitive answer)
+  if (!isAdmin && !wasAdminRef.current) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
         <div className="flex flex-col items-center w-full max-w-sm">
@@ -1007,7 +1061,14 @@ export default function AdminDashboardPage() {
             </Link>
           </motion.div>
 
-          {!!identity && <ClaimAdminPanel />}
+          {!!identity && (
+            <ClaimAdminPanel
+              onClaimed={() => {
+                hasClaimed.current = true;
+                setClaimPending(true);
+              }}
+            />
+          )}
         </div>
       </div>
     );

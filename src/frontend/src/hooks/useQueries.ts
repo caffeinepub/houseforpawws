@@ -1,5 +1,10 @@
 import { Principal } from "@icp-sdk/core/principal";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type {
   ConversationView,
   FullUserProfile,
@@ -42,13 +47,20 @@ export function useGetCallerUserProfile() {
     retry: 2,
     retryDelay: 1000,
     // Keep previously fetched profile data while re-fetching to avoid
-    // "null flash" that incorrectly triggers the ProfileSetupModal
+    // "null flash" that incorrectly triggers the ProfileSetupModal.
+    // keepPreviousData ensures that during a background refetch triggered by
+    // the actor's query-invalidation sweep, the last confirmed value is still
+    // returned instead of temporarily returning undefined/null.
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
   return {
     ...query,
     isLoading: isInitializing || actorFetching || query.isLoading,
     isFetched: !isInitializing && !!actor && query.isFetched,
+    // isRefetching is exposed so callers can distinguish "first load" from
+    // "background refresh triggered by actor change".
+    isRefetching: query.isFetching && query.isFetched,
   };
 }
 

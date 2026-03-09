@@ -9,48 +9,52 @@ import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, isLoggingIn, isLoginError, identity } = useInternetIdentity();
+  const { login, isLoggingIn, isLoginError, isInitializing, identity } =
+    useInternetIdentity();
   const [captchaPassed, setCaptchaPassed] = useState(false);
-  const [hasAttempted, setHasAttempted] = useState(false);
-  const errorToastShown = useRef(false);
+  // Use a ref so toggling it never causes a re-render that could disturb the
+  // brief window when identity becomes available after the II popup closes.
+  const hasAttemptedRef = useRef(false);
   const hasRedirected = useRef(false);
+  const errorToastShown = useRef(false);
 
-  // Redirect as soon as identity is available -- works whether status is
-  // "success" or has already reverted to "idle" (which happens after the
-  // auth client re-initialises on mount in the II hook).
+  // Single consolidated redirect effect.
+  // Fires whenever identity or isInitializing changes.
+  // - If the user just completed login (hasAttemptedRef is true), wait until
+  //   auth is no longer initializing then redirect with a tiny delay so the
+  //   identity has fully stabilized in every subscriber.
+  // - If the user is already logged in on arrival, redirect immediately.
   useEffect(() => {
-    if (identity && hasAttempted && !hasRedirected.current) {
-      hasRedirected.current = true;
+    if (!identity || isInitializing || hasRedirected.current) return;
+
+    hasRedirected.current = true;
+    // Small delay lets React flush all state derived from the new identity
+    // before the navigation tears down this component tree.
+    const t = setTimeout(() => {
       navigate({ to: "/" });
-    }
-  }, [identity, hasAttempted, navigate]);
+    }, 80);
+    return () => clearTimeout(t);
+  }, [identity, isInitializing, navigate]);
 
-  // If already logged in when landing on this page, redirect immediately
+  // Show error toast only after the user explicitly attempted login.
   useEffect(() => {
-    if (identity && !hasAttempted) {
-      navigate({ to: "/" });
-    }
-  }, [identity, hasAttempted, navigate]);
-
-  // Reset captcha and show error toast when login fails after an attempt
-  useEffect(() => {
-    if (hasAttempted && isLoginError && !errorToastShown.current) {
+    if (!hasAttemptedRef.current) return;
+    if (isLoginError && !errorToastShown.current) {
       errorToastShown.current = true;
       setCaptchaPassed(false);
       toast.error("Login failed. Please try again.");
     }
-    // Reset the ref when error clears so next attempt can show again
     if (!isLoginError) {
       errorToastShown.current = false;
     }
-  }, [hasAttempted, isLoginError]);
+  }, [isLoginError]);
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     if (!captchaPassed) {
       toast.error("Please complete the security check first.");
       return;
     }
-    setHasAttempted(true);
+    hasAttemptedRef.current = true;
     login();
   };
 
@@ -100,7 +104,7 @@ export default function LoginPage() {
               )}
             </Button>
 
-            {hasAttempted && isLoginError && (
+            {isLoginError && (
               <p
                 className="text-sm text-destructive text-center"
                 data-ocid="login.error_state"
