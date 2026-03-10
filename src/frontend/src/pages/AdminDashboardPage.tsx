@@ -737,10 +737,6 @@ export default function AdminDashboardPage() {
   }, [identity]);
 
   // Auto-claim admin if none exists yet.
-  // Fires exactly once per session (guarded by hasAttemptedClaimRef) when:
-  //   - actor is authenticated and ready
-  //   - identity is present
-  //   - we definitively know the caller is NOT yet admin
   useEffect(() => {
     if (
       !actor ||
@@ -759,19 +755,15 @@ export default function AdminDashboardPage() {
       .then((claimed) => {
         if (claimed) {
           queryClient.invalidateQueries({ queryKey: ["isCallerAdmin"] });
-        } else {
-          // Admin is already assigned to someone else -- nothing to do.
         }
       })
       .catch(() => {
         // Function not available or call failed -- reset so a retry is possible
-        // on manual refresh, but don't loop.
       });
   }, [actor, identity, actorFetching, isAdmin, adminFetched, queryClient]);
 
   const { data: stats, isLoading: statsLoading } = useAdminStats();
 
-  // Show loading spinner only on the very first admin check (no data yet).
   const showLoading = isInitializing || (adminChecking && !adminFetched);
 
   // Not logged in
@@ -786,7 +778,7 @@ export default function AdminDashboardPage() {
             Sign in Required
           </h1>
           <p className="text-muted-foreground text-sm mb-6">
-            You must be logged in to access the admin panel.
+            You must be logged in to access this page.
           </p>
           <Link to="/login">
             <Button className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
@@ -807,15 +799,13 @@ export default function AdminDashboardPage() {
       >
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground text-sm">
-            Checking admin access…
-          </p>
+          <p className="text-muted-foreground text-sm">Checking access…</p>
         </div>
       </div>
     );
   }
 
-  // Not admin (definitive answer, and auto-claim hasn't resolved yet or failed)
+  // Not admin
   if (!isAdmin && !wasAdminRef.current) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
@@ -833,8 +823,8 @@ export default function AdminDashboardPage() {
           </h1>
           <p className="text-muted-foreground text-sm mb-6">
             {hasAttemptedClaimRef.current
-              ? "Admin access is already assigned to another account."
-              : "You do not have admin privileges."}
+              ? "Moderation access is already assigned to another account."
+              : "You do not have moderation privileges."}
           </p>
           {hasAttemptedClaimRef.current && (
             <p className="text-xs text-muted-foreground">
@@ -867,7 +857,7 @@ export default function AdminDashboardPage() {
           </div>
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">
-              Admin Dashboard
+              Moderation
             </h1>
             <p className="text-muted-foreground text-sm">
               Manage users and moderate pet listings

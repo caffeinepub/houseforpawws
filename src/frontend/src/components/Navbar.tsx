@@ -93,7 +93,7 @@ export default function Navbar() {
           data-ocid="nav.admin.link"
         >
           <Shield className="h-4 w-4" />
-          Admin
+          Moderation
         </Link>
       )}
     </>
@@ -203,7 +203,7 @@ export default function Navbar() {
                       className="cursor-pointer"
                       data-ocid="nav.admin.link"
                     >
-                      Admin Dashboard
+                      Moderation
                     </Link>
                   </DropdownMenuItem>
                 )}

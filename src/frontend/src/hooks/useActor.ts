@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { backendInterface } from "../backend";
 import { createActorWithConfig } from "../config";
 import { getSecretParameter } from "../utils/urlParams";
@@ -9,16 +9,13 @@ const ACTOR_QUERY_KEY = "actor";
 export function useActor() {
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
-  // Track the previous actor data reference so we only invalidate on genuine
-  // actor changes, not on every render tick.
-  const prevActorRef = useRef<backendInterface | null>(null);
-
   const actorQuery = useQuery<backendInterface>({
     queryKey: [ACTOR_QUERY_KEY, identity?.getPrincipal().toString()],
     queryFn: async () => {
       const isAuthenticated = !!identity;
 
       if (!isAuthenticated) {
+        // Return anonymous actor if not authenticated
         return await createActorWithConfig();
       }
 
@@ -33,30 +30,25 @@ export function useActor() {
       await actor._initializeAccessControlWithSecret(adminToken);
       return actor;
     },
+    // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
+    // This will cause the actor to be recreated when the identity changes
     enabled: true,
   });
 
-  // When the actor reference genuinely changes (identity switch or login),
-  // mark dependent queries stale so they'll refetch lazily when next accessed.
-  // We intentionally do NOT call refetchQueries here — forcing an immediate
-  // concurrent refetch of every query causes a cascade where profile briefly
-  // returns null and the admin check briefly returns false, which triggers
-  // spurious UI flashes (ProfileSetupModal, "Access Denied" screen).
+  // When the actor changes, invalidate dependent queries
   useEffect(() => {
-    const newActor = actorQuery.data ?? null;
-    if (newActor && newActor !== prevActorRef.current) {
-      prevActorRef.current = newActor;
-      // Small delay lets the new actor settle into React state before queries
-      // start re-running, avoiding a burst of simultaneous refetch requests.
-      const t = setTimeout(() => {
-        queryClient.invalidateQueries({
-          predicate: (query) => {
-            return !query.queryKey.includes(ACTOR_QUERY_KEY);
-          },
-        });
-      }, 150);
-      return () => clearTimeout(t);
+    if (actorQuery.data) {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          return !query.queryKey.includes(ACTOR_QUERY_KEY);
+        },
+      });
+      queryClient.refetchQueries({
+        predicate: (query) => {
+          return !query.queryKey.includes(ACTOR_QUERY_KEY);
+        },
+      });
     }
   }, [actorQuery.data, queryClient]);
 
