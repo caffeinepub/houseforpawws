@@ -191,8 +191,8 @@ actor {
       case (?profile) { profile };
     };
 
-    // Owner or admin can see full profile
-    if (caller == user or AccessControl.isAdmin(accessControlState, caller)) {
+    // Owner sees full profile
+    if (caller == user) {
       ?#full(fullProfile);
     } else {
       // Others see only public fields
@@ -424,90 +424,4 @@ actor {
     (conversation.user1, conversation.user2);
   };
 
-  // Force-claim admin if no admin exists yet (used for first-time setup)
-  public shared ({ caller }) func forceClaimAdminIfNoneExists() : async Bool {
-    if (caller.isAnonymous()) { return false };
-    if (not accessControlState.adminAssigned) {
-      accessControlState.userRoles.add(caller, #admin);
-      accessControlState.adminAssigned := true;
-      true;
-    } else {
-      false;
-    };
-  };
-
-  // --- ADMIN FUNCTIONS ---
-  public query ({ caller }) func adminGetAllUsers() : async [(Principal, FullUserProfile)] {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can get all users");
-    };
-    userProfiles.toArray();
-  };
-
-  public type Stats = {
-    totalUsers : Nat;
-    totalPets : Nat;
-    adoptedPets : Nat;
-    totalConversations : Nat;
-  };
-
-  public query ({ caller }) func adminGetStats() : async Stats {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can get stats");
-    };
-
-    let petsValues = petStore.pets.values().toArray();
-    let adoptedPets = petsValues.filter(
-      func(pet) { pet.isAdopted }
-    );
-
-    {
-      totalUsers = userProfiles.size();
-      totalPets = petsValues.size();
-      adoptedPets = adoptedPets.size();
-      totalConversations = conversations.size();
-    };
-  };
-
-  public shared ({ caller }) func adminDeletePet(petId : Text) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can delete pets");
-    };
-    switch (petStore.pets.get(petId)) {
-      case (null) { Runtime.trap("Pet not found") };
-      case (_) {
-        petStore.pets.remove(petId);
-      };
-    };
-  };
-
-  public shared ({ caller }) func adminBanUser(user : Principal) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can ban users");
-    };
-    AccessControl.assignRole(accessControlState, caller, user, #guest);
-  };
-
-  public shared ({ caller }) func adminUnbanUser(user : Principal) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can unban users");
-    };
-    AccessControl.assignRole(accessControlState, caller, user, #user);
-  };
-
-  public query ({ caller }) func adminGetBannedUsers() : async [Principal] {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can get banned users");
-    };
-
-    let allUsers = userProfiles.toArray();
-    let bannedUsers = allUsers.filter(
-      func((principal, _)) {
-        AccessControl.getUserRole(accessControlState, principal) == #guest;
-      }
-    );
-
-    let bannedPrincipalIter = bannedUsers.map(func((principal, _profile)) { principal });
-    bannedPrincipalIter;
-  };
 };

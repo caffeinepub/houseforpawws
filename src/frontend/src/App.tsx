@@ -13,7 +13,6 @@ import Navbar from "./components/Navbar";
 import ProfileSetupModal from "./components/ProfileSetupModal";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "./hooks/useQueries";
-import AdminDashboardPage from "./pages/AdminDashboardPage";
 import HomePage from "./pages/HomePage";
 import InboxPage from "./pages/InboxPage";
 import LoginPage from "./pages/LoginPage";
@@ -36,16 +35,11 @@ function RootLayout() {
   } = useGetCallerUserProfile();
   const queryClient = useQueryClient();
 
-  // Once the profile has been confirmed as non-null for this identity session,
-  // we never want to show the setup modal again (even during the brief re-init
-  // window where `profile` may temporarily appear stale/null).
   const profileEverLoadedRef = useRef(false);
-  // Track which identity principal the ref belongs to so it resets on logout.
   const trackedPrincipalRef = useRef<string | undefined>(undefined);
 
   const currentPrincipal = identity?.getPrincipal().toString();
 
-  // Reset the "ever loaded" guard when the identity changes (logout / switch).
   useEffect(() => {
     if (currentPrincipal !== trackedPrincipalRef.current) {
       trackedPrincipalRef.current = currentPrincipal;
@@ -53,25 +47,12 @@ function RootLayout() {
     }
   }, [currentPrincipal]);
 
-  // Mark that we've confirmed a real profile exists for this session.
   if (profile != null && currentPrincipal === trackedPrincipalRef.current) {
     profileEverLoadedRef.current = true;
   }
 
   const isAuthenticated = !!identity;
 
-  // Only show profile setup when ALL conditions are met:
-  // 1. Auth fully initialized, user authenticated, not actively logging in
-  // 2. Profile query completed (isFetched) and not in any loading/refetching state
-  // 3. Profile is explicitly null (not undefined -- undefined means "not yet fetched")
-  // 4. We have NEVER confirmed a non-null profile for this session
-  //
-  // Using `profile === null` (not `!profile`) is intentional:
-  //   - undefined  → query hasn't run yet, don't show modal
-  //   - null       → backend confirmed no profile exists, show modal
-  //
-  // !profileRefetching prevents the modal from flashing during the
-  // actor-triggered background invalidation sweep that happens on login.
   const showProfileSetup =
     !isInitializing &&
     !isLoggingIn &&
@@ -170,12 +151,6 @@ const inboxConvRoute = createRoute({
   component: () => <InboxPage />,
 });
 
-const adminRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/admin",
-  component: AdminDashboardPage,
-});
-
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
@@ -193,7 +168,6 @@ const routeTree = rootRoute.addChildren([
   publicProfileRoute,
   inboxRoute,
   inboxConvRoute,
-  adminRoute,
   settingsRoute,
 ]);
 

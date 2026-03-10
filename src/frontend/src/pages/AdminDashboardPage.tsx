@@ -40,15 +40,9 @@ import {
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import type { FullUserProfile, Pet, Stats } from "../backend";
-
-// forceClaimAdminIfNoneExists is present in backend.d.ts (canister) but not
-// always emitted in the generated backend.ts interface. Extend locally.
-interface ExtendedBackend {
-  forceClaimAdminIfNoneExists(): Promise<boolean>;
-}
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -57,8 +51,10 @@ import { useInternetIdentity } from "../hooks/useInternetIdentity";
 function useIsCallerAdmin() {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
+  const principal = identity?.getPrincipal().toString();
   return useQuery<boolean>({
-    queryKey: ["isCallerAdmin"],
+    // Per-session key: when identity changes, this query gets a fresh cache entry
+    queryKey: ["isCallerAdmin", principal ?? "anonymous"],
     queryFn: async () => {
       if (!actor) return false;
       return actor.isCallerAdmin();
@@ -707,13 +703,6 @@ function PetsTable() {
 export default function AdminDashboardPage() {
   const { identity, isInitializing } = useInternetIdentity();
   const { actor, isFetching: actorFetching } = useActor();
-  const queryClient = useQueryClient();
-
-  // wasAdminRef: once confirmed admin, stays true to prevent dashboard from
-  // hiding during background refetches that briefly return isAdmin=undefined.
-  const wasAdminRef = useRef(false);
-  // Guard: auto-claim should only fire once per page visit.
-  const hasAttemptedClaimRef = useRef(false);
 
   const {
     data: isAdmin,
@@ -721,53 +710,16 @@ export default function AdminDashboardPage() {
     isFetched: adminFetched,
   } = useIsCallerAdmin();
 
-  // Latch: once we have confirmed the user IS admin, lock wasAdminRef.
-  useEffect(() => {
-    if (isAdmin === true) {
-      wasAdminRef.current = true;
-    }
-  }, [isAdmin]);
-
-  // Reset latch on logout.
-  useEffect(() => {
-    if (!identity) {
-      wasAdminRef.current = false;
-      hasAttemptedClaimRef.current = false;
-    }
-  }, [identity]);
-
-  // Auto-claim admin if none exists yet.
-  useEffect(() => {
-    if (
-      !actor ||
-      !identity ||
-      actorFetching ||
-      isAdmin !== false ||
-      !adminFetched ||
-      hasAttemptedClaimRef.current
-    )
-      return;
-
-    hasAttemptedClaimRef.current = true;
-
-    (actor as unknown as ExtendedBackend)
-      .forceClaimAdminIfNoneExists()
-      .then((claimed) => {
-        if (claimed) {
-          queryClient.invalidateQueries({ queryKey: ["isCallerAdmin"] });
-        }
-      })
-      .catch(() => {
-        // Function not available or call failed -- reset so a retry is possible
-      });
-  }, [actor, identity, actorFetching, isAdmin, adminFetched, queryClient]);
-
   const { data: stats, isLoading: statsLoading } = useAdminStats();
 
-  const showLoading = isInitializing || (adminChecking && !adminFetched);
+  // Auth is not yet fully settled: identity still loading, or actor still being built
+  const authSettling = isInitializing || actorFetching || !actor;
 
-  // Not logged in
-  if (!identity && !isInitializing && !adminChecking) {
+  // Show spinner while auth is settling OR while the admin check hasn't returned yet
+  const showLoading = authSettling || (adminChecking && !adminFetched);
+
+  // Not logged in (and auth has settled)
+  if (!identity && !authSettling) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
@@ -790,7 +742,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Loading spinner (initial check only)
+  // Loading spinner
   if (showLoading) {
     return (
       <div
@@ -805,8 +757,8 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Not admin
-  if (!isAdmin && !wasAdminRef.current) {
+  // Not admin — only shown once auth has fully settled AND the admin check has returned
+  if (isAdmin === false && adminFetched && !authSettling) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
         <motion.div
@@ -822,20 +774,8 @@ export default function AdminDashboardPage() {
             Access Denied
           </h1>
           <p className="text-muted-foreground text-sm mb-6">
-            {hasAttemptedClaimRef.current
-              ? "Moderation access is already assigned to another account."
-              : "You do not have moderation privileges."}
+            You do not have moderation privileges.
           </p>
-          {hasAttemptedClaimRef.current && (
-            <p className="text-xs text-muted-foreground">
-              If you believe this is an error, please refresh the page.
-            </p>
-          )}
-          <div className="mt-4">
-            {!hasAttemptedClaimRef.current && (
-              <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto" />
-            )}
-          </div>
         </motion.div>
       </div>
     );

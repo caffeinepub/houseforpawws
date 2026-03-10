@@ -1,5 +1,4 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Menu,
@@ -18,13 +17,13 @@ import {
   PlusCircle,
   Search,
   Settings,
-  Shield,
 } from "lucide-react";
 import { useState } from "react";
-import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useGetCallerUserProfile } from "../hooks/useQueries";
-import { useGetMyConversations } from "../hooks/useQueries";
+import {
+  useGetCallerUserProfile,
+  useGetMyConversations,
+} from "../hooks/useQueries";
 
 export default function Navbar() {
   const { identity, clear } = useInternetIdentity();
@@ -33,15 +32,6 @@ export default function Navbar() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { actor, isFetching: actorFetching } = useActor();
-  const { data: isAdmin } = useQuery<boolean>({
-    queryKey: ["isCallerAdmin"],
-    queryFn: async () => {
-      if (!actor) return false;
-      return actor.isCallerAdmin();
-    },
-    enabled: !!actor && !actorFetching && !!identity,
-  });
 
   const isAuthenticated = !!identity;
   const hasConversations = (conversations?.length ?? 0) > 0;
@@ -84,16 +74,6 @@ export default function Navbar() {
         >
           <Settings className="h-4 w-4" />
           Settings
-        </Link>
-      )}
-      {isAdmin && (
-        <Link
-          to="/admin"
-          className="flex items-center gap-1.5 text-sm font-medium text-foreground/70 hover:text-primary transition-colors"
-          data-ocid="nav.admin.link"
-        >
-          <Shield className="h-4 w-4" />
-          Moderation
         </Link>
       )}
     </>
@@ -196,17 +176,6 @@ export default function Navbar() {
                     Settings
                   </Link>
                 </DropdownMenuItem>
-                {isAdmin && (
-                  <DropdownMenuItem asChild>
-                    <Link
-                      to="/admin"
-                      className="cursor-pointer"
-                      data-ocid="nav.admin.link"
-                    >
-                      Moderation
-                    </Link>
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}

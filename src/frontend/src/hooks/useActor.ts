@@ -15,6 +15,7 @@ export function useActor() {
       const isAuthenticated = !!identity;
 
       if (!isAuthenticated) {
+        // Return anonymous actor if not authenticated
         return await createActorWithConfig();
       }
 
@@ -25,31 +26,29 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      try {
-        const adminToken = getSecretParameter("caffeineAdminToken") || "";
-        await actor._initializeAccessControlWithSecret(adminToken);
-      } catch {
-        // Non-fatal: admin token init is optional for regular users
-      }
+      const adminToken = getSecretParameter("caffeineAdminToken") || "";
+      await actor._initializeAccessControlWithSecret(adminToken);
       return actor;
     },
+    // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
+    // This will cause the actor to be recreated when the identity changes
     enabled: true,
   });
 
-  // Only invalidate the queries that actually depend on identity.
-  // A mass invalidation of all queries triggers cascading refetches that
-  // cause profile flickers and the ProfileSetupModal to flash incorrectly.
+  // When the actor changes, invalidate dependent queries
   useEffect(() => {
     if (actorQuery.data) {
-      const targetedKeys = [
-        ["currentUserProfile"],
-        ["myConversations"],
-        ["allPets"],
-      ];
-      for (const queryKey of targetedKeys) {
-        queryClient.invalidateQueries({ queryKey });
-      }
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          return !query.queryKey.includes(ACTOR_QUERY_KEY);
+        },
+      });
+      queryClient.refetchQueries({
+        predicate: (query) => {
+          return !query.queryKey.includes(ACTOR_QUERY_KEY);
+        },
+      });
     }
   }, [actorQuery.data, queryClient]);
 

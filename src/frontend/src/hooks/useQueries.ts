@@ -36,19 +36,12 @@ export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
   const { isInitializing, identity } = useInternetIdentity();
 
-  // The auth hook's `finally` block unconditionally resets loginStatus to
-  // "idle" after init -- even after a successful login.  That makes
-  // `isInitializing` briefly flip true→false→true→false on every login,
-  // which would disable this query for a tick and cause the profile to flash
-  // null.  We therefore gate on the actor being present (actor is only created
-  // once identity is stable) rather than on isInitializing.
-  //
-  // We still wait for the very first initialisation to complete (no actor yet)
-  // so anonymous users don't see a spurious ProfileSetupModal.
+  const principal = identity?.getPrincipal().toString();
   const actorReady = !!actor && !actorFetching;
 
   const query = useQuery<FullUserProfile | null>({
-    queryKey: ["currentUserProfile"],
+    // Include principal so the cache is per-session and never bleeds across logins
+    queryKey: ["currentUserProfile", principal ?? "anonymous"],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
       return actor.getCallerUserProfile();
@@ -56,17 +49,11 @@ export function useGetCallerUserProfile() {
     enabled: actorReady,
     retry: 2,
     retryDelay: 1000,
-    // Hold the last known value during background refetches so callers never
-    // see a spurious null that would re-open the ProfileSetupModal.
     staleTime: 30_000,
     placeholderData: keepPreviousData,
-    // Deduplicate rapid successive fetches triggered by the actor invalidation
-    // sweep that fires on every identity change.
     refetchOnWindowFocus: false,
   });
 
-  // isLoading = true only on the genuine first fetch (no data at all yet).
-  // Background refetches are invisible to callers.
   const hasData = query.data !== undefined;
   const firstLoad =
     !hasData && (isInitializing || !actorReady || query.isLoading);
@@ -74,12 +61,8 @@ export function useGetCallerUserProfile() {
   return {
     ...query,
     isLoading: firstLoad,
-    // isFetched: true once we have confirmed the actor ran at least one fetch.
     isFetched: actorReady && query.isFetched,
-    // isRefetching lets callers distinguish first-load from background refresh.
     isRefetching: query.isFetching && query.isFetched,
-    // Expose the stable identity reference so App.tsx can use it as a
-    // session-change signal without depending on the flaky loginStatus.
     identity,
   };
 }
@@ -118,14 +101,18 @@ export function useGetFullUserProfile(principal: string | undefined) {
 
 export function useSaveCallerUserProfile() {
   const { actor } = useActor();
+  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
+  const principal = identity?.getPrincipal().toString();
   return useMutation({
     mutationFn: async (profile: FullUserProfile) => {
       if (!actor) throw new Error("Not authenticated");
       await actor.saveCallerUserProfile(profile);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      queryClient.invalidateQueries({
+        queryKey: ["currentUserProfile", principal ?? "anonymous"],
+      });
     },
   });
 }
@@ -204,8 +191,9 @@ export function useDeletePet() {
 export function useGetMyConversations() {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
+  const principal = identity?.getPrincipal().toString();
   return useQuery<ConversationView[]>({
-    queryKey: ["myConversations"],
+    queryKey: ["myConversations", principal ?? "anonymous"],
     queryFn: async () => {
       if (!actor) return [];
       return actor.getMyConversations();
@@ -218,8 +206,9 @@ export function useGetMyConversations() {
 export function useGetMessages(conversationId: string | undefined) {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
+  const principal = identity?.getPrincipal().toString();
   return useQuery<MessageView[]>({
-    queryKey: ["messages", conversationId],
+    queryKey: ["messages", conversationId, principal ?? "anonymous"],
     queryFn: async () => {
       if (!actor || !conversationId) return [];
       return actor.getMessages(conversationId);
@@ -231,7 +220,9 @@ export function useGetMessages(conversationId: string | undefined) {
 
 export function useSendMessage() {
   const { actor } = useActor();
+  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
+  const principal = identity?.getPrincipal().toString();
   return useMutation({
     mutationFn: async ({
       conversationId,
@@ -241,8 +232,12 @@ export function useSendMessage() {
       await actor.sendMessage(conversationId, text);
     },
     onSuccess: (_data, { conversationId }) => {
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
-      queryClient.invalidateQueries({ queryKey: ["myConversations"] });
+      queryClient.invalidateQueries({
+        queryKey: ["messages", conversationId, principal ?? "anonymous"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["myConversations", principal ?? "anonymous"],
+      });
     },
   });
 }
