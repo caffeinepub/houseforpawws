@@ -19,17 +19,10 @@ export default function LoginPage() {
   const errorToastShown = useRef(false);
 
   // Single consolidated redirect effect.
-  // Fires whenever identity or isInitializing changes.
-  // - If the user just completed login (hasAttemptedRef is true), wait until
-  //   auth is no longer initializing then redirect with a tiny delay so the
-  //   identity has fully stabilized in every subscriber.
-  // - If the user is already logged in on arrival, redirect immediately.
   useEffect(() => {
     if (!identity || isInitializing || hasRedirected.current) return;
 
     hasRedirected.current = true;
-    // Small delay lets React flush all state derived from the new identity
-    // before the navigation tears down this component tree.
     const t = setTimeout(() => {
       navigate({ to: "/" });
     }, 80);
@@ -104,7 +97,7 @@ export default function LoginPage() {
               )}
             </Button>
 
-            {isLoginError && (
+            {isLoginError && hasAttemptedRef.current && (
               <p
                 className="text-sm text-destructive text-center"
                 data-ocid="login.error_state"
