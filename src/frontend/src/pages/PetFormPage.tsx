@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -18,6 +19,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 import type { Pet } from "../backend";
+import TOSModal from "../components/TOSModal";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCreatePet, useGetPet, useUpdatePet } from "../hooks/useQueries";
 
@@ -70,6 +72,7 @@ export default function PetFormPage({ mode }: Props) {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number[]>([]);
+  const [tosAccepted, setTosAccepted] = useState(false);
 
   const isPending = isCreating || isUpdating;
 
@@ -143,6 +146,10 @@ export default function PetFormPage({ mode }: Props) {
     if (!identity) return;
     if (!form.name.trim()) {
       toast.error("Pet name is required.");
+      return;
+    }
+    if (mode === "create" && !tosAccepted) {
+      toast.error("Please agree to the Terms of Service.");
       return;
     }
 
@@ -432,6 +439,34 @@ export default function PetFormPage({ mode }: Props) {
             </div>
           )}
 
+          {/* TOS Checkbox — create mode only */}
+          {mode === "create" && (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border">
+              <Checkbox
+                id="pet-tos"
+                checked={tosAccepted}
+                onCheckedChange={(checked) => setTosAccepted(checked === true)}
+                className="mt-0.5"
+                data-ocid="pet_form.tos.checkbox"
+              />
+              <label
+                htmlFor="pet-tos"
+                className="text-sm text-muted-foreground leading-snug cursor-pointer select-none"
+              >
+                I agree to the{" "}
+                <TOSModal>
+                  <button
+                    type="button"
+                    className="text-primary font-medium hover:underline focus:outline-none focus-visible:underline"
+                  >
+                    Terms of Service
+                  </button>
+                </TOSModal>{" "}
+                before listing this pet
+              </label>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-2">
             <Button
               type="button"
@@ -445,7 +480,9 @@ export default function PetFormPage({ mode }: Props) {
             <Button
               type="submit"
               className="flex-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-paw"
-              disabled={isPending || isUploading}
+              disabled={
+                isPending || isUploading || (mode === "create" && !tosAccepted)
+              }
               data-ocid="pet_form.submit_button"
             >
               {isPending ? (

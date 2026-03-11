@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -7,6 +8,7 @@ import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import MathCaptcha from "../components/MathCaptcha";
+import TOSModal from "../components/TOSModal";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useSaveCallerUserProfile } from "../hooks/useQueries";
@@ -21,6 +23,7 @@ export default function RegisterPage() {
     useSaveCallerUserProfile();
 
   const [captchaPassed, setCaptchaPassed] = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -55,6 +58,10 @@ export default function RegisterPage() {
     }
     if (!phone.trim()) {
       toast.error("Please enter your phone number.");
+      return;
+    }
+    if (!tosAccepted) {
+      toast.error("Please agree to the Terms of Service.");
       return;
     }
     hasAttemptedLoginRef.current = true;
@@ -206,11 +213,37 @@ export default function RegisterPage() {
 
             <MathCaptcha onValidChange={setCaptchaPassed} />
 
+            {/* TOS Checkbox */}
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border">
+              <Checkbox
+                id="tos"
+                checked={tosAccepted}
+                onCheckedChange={(checked) => setTosAccepted(checked === true)}
+                className="mt-0.5"
+                data-ocid="register.tos.checkbox"
+              />
+              <label
+                htmlFor="tos"
+                className="text-sm text-muted-foreground leading-snug cursor-pointer select-none"
+              >
+                I agree to the{" "}
+                <TOSModal>
+                  <button
+                    type="button"
+                    className="text-primary font-medium hover:underline focus:outline-none focus-visible:underline"
+                  >
+                    Terms of Service
+                  </button>
+                </TOSModal>
+              </label>
+            </div>
+
             <Button
               onClick={handleRegister}
               disabled={
                 isLoggingIn ||
                 !captchaPassed ||
+                !tosAccepted ||
                 !displayName.trim() ||
                 !email.trim() ||
                 !phone.trim()

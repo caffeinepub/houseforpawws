@@ -19,7 +19,6 @@ import { useInternetIdentity } from "./useInternetIdentity";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Normalise a UserProfileResult to the public-safe shape */
 function normaliseProfileResult(
   result: UserProfileResult | null,
 ): PublicUserProfile | null {
@@ -41,7 +40,6 @@ export function useGetCallerUserProfile() {
   const actorReady = !!actor && !actorFetching;
 
   const query = useQuery<FullUserProfile | null>({
-    // Include principal so the cache is per-session and never bleeds across logins
     queryKey: ["currentUserProfile", principal ?? "anonymous"],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
@@ -50,7 +48,7 @@ export function useGetCallerUserProfile() {
     enabled: actorReady,
     retry: 2,
     retryDelay: 1000,
-    staleTime: 30_000,
+    staleTime: 60_000,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
   });
@@ -68,7 +66,6 @@ export function useGetCallerUserProfile() {
   };
 }
 
-/** Returns normalised public-safe profile (no email/phone) for any user */
 export function useGetUserProfile(principal: string | undefined) {
   const { actor, isFetching: actorFetching } = useActor();
   return useQuery<PublicUserProfile | null>({
@@ -80,10 +77,11 @@ export function useGetUserProfile(principal: string | undefined) {
     },
     enabled: !!actor && !actorFetching && !!principal,
     placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
-/** Returns full profile (with email/phone) for the current user's own views */
 export function useGetFullUserProfile(principal: string | undefined) {
   const { actor, isFetching: actorFetching } = useActor();
   return useQuery<FullUserProfile | null>({
@@ -97,6 +95,8 @@ export function useGetFullUserProfile(principal: string | undefined) {
     },
     enabled: !!actor && !actorFetching && !!principal,
     placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -129,6 +129,8 @@ export function useGetAllPets() {
       return actor.getAllPets();
     },
     enabled: !!actor && !actorFetching,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -141,6 +143,8 @@ export function useGetPet(petId: string | undefined) {
       return actor.getPet(petId);
     },
     enabled: !!actor && !actorFetching && !!petId,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -200,7 +204,11 @@ export function useGetMyConversations() {
       return actor.getMyConversations();
     },
     enabled: !!actor && !actorFetching && !!identity,
-    refetchInterval: 5000,
+    // Only poll when tab is visible, at a slower rate
+    refetchInterval: (_query) =>
+      document.visibilityState === "visible" ? 15_000 : false,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
   });
 }
 
@@ -215,7 +223,11 @@ export function useGetMessages(conversationId: string | undefined) {
       return actor.getMessages(conversationId);
     },
     enabled: !!actor && !actorFetching && !!conversationId && !!identity,
-    refetchInterval: 3000,
+    // Poll messages only when tab is visible
+    refetchInterval: (_query) =>
+      document.visibilityState === "visible" ? 5_000 : false,
+    refetchIntervalInBackground: false,
+    staleTime: 3_000,
   });
 }
 
@@ -267,7 +279,8 @@ export function useIsCallerAdmin() {
     },
     enabled: !!actor && !actorFetching && !!identity,
     placeholderData: keepPreviousData,
-    staleTime: 60_000,
+    staleTime: 120_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -282,7 +295,8 @@ export function useAdminGetStats() {
       return actor.adminGetStats();
     },
     enabled: !!actor && !actorFetching && !!identity,
-    staleTime: 30_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -299,6 +313,7 @@ export function useAdminGetAllUsers() {
       return actor.adminGetAllUsers();
     },
     enabled: !!actor && !actorFetching && !!identity,
-    staleTime: 30_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }

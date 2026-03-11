@@ -1,23 +1,24 @@
 # HouseForPawws
 
 ## Current State
-App has a Stats & Demographics page at `/stats` visible only to admin users, controlled by `useIsCallerAdmin()` query in the Navbar. Login glitching is caused by the admin check query running in Navbar on every render, causing unnecessary re-renders during authentication.
+Users can register and create pet listings without agreeing to any Terms of Service. The RegisterPage has CAPTCHA but no TOS checkbox. PetFormPage has no TOS agreement.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Nothing
+- TOS checkbox on RegisterPage -- must be checked before account creation is allowed.
+- TOS checkbox on PetFormPage -- must be checked before submitting a new listing (create mode only, not edit).
+- A simple inline Terms of Service modal/link that shows the TOS text when clicked.
 
 ### Modify
-- Navbar: remove `useIsCallerAdmin` call and all stats/admin nav links
-- App.tsx: remove statsRoute
-- useQueries.ts: remove `useIsCallerAdmin`, `useAdminGetStats`, `useAdminGetAllUsers` hooks
+- RegisterPage: disable the Create Account button if TOS not agreed.
+- PetFormPage: disable the submit button if TOS not agreed (create mode only).
 
 ### Remove
-- Stats route and nav links
-- All admin query hooks from Navbar
+- Nothing.
 
 ## Implementation Plan
-1. Update Navbar.tsx - remove isAdmin state, stats links, BarChart2 icon import
-2. Update App.tsx - remove statsRoute and StatsDashboardPage import
-3. Update useQueries.ts - remove admin hooks section
+1. Add a `TOSModal` component with basic Terms of Service text.
+2. Add TOS checkbox + "View Terms" link to RegisterPage below the CAPTCHA.
+3. Add TOS checkbox + "View Terms" link to PetFormPage above the submit button (create mode only).
+4. Enforce: buttons disabled unless TOS accepted.
