@@ -11,6 +11,7 @@ import type {
   MessageView,
   Pet,
   PublicUserProfile,
+  Stats,
   UserProfileResult,
 } from "../backend";
 import { useActor } from "./useActor";
@@ -249,5 +250,55 @@ export function useStartOrGetConversation() {
       if (!actor) throw new Error("Not authenticated");
       return actor.startOrGetConversation(Principal.fromText(otherUser));
     },
+  });
+}
+
+// ── Admin / Stats ────────────────────────────────────────────────────────────
+
+export function useIsCallerAdmin() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const principal = identity?.getPrincipal().toString();
+  return useQuery<boolean>({
+    queryKey: ["isCallerAdmin", principal ?? "anonymous"],
+    queryFn: async () => {
+      if (!actor) return false;
+      return actor.isCallerAdmin();
+    },
+    enabled: !!actor && !actorFetching && !!identity,
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+  });
+}
+
+export function useAdminGetStats() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const principal = identity?.getPrincipal().toString();
+  return useQuery<Stats>({
+    queryKey: ["adminStats", principal ?? "anonymous"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.adminGetStats();
+    },
+    enabled: !!actor && !actorFetching && !!identity,
+    staleTime: 30_000,
+  });
+}
+
+export function useAdminGetAllUsers() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const principal = identity?.getPrincipal().toString();
+  return useQuery<
+    Array<[import("@icp-sdk/core/principal").Principal, FullUserProfile]>
+  >({
+    queryKey: ["adminAllUsers", principal ?? "anonymous"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.adminGetAllUsers();
+    },
+    enabled: !!actor && !actorFetching && !!identity,
+    staleTime: 30_000,
   });
 }
