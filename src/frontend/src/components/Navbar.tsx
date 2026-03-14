@@ -17,18 +17,21 @@ import {
   PlusCircle,
   Search,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useGetCallerUserProfile,
   useGetMyConversations,
+  useIsCallerAdmin,
 } from "../hooks/useQueries";
 
 export default function Navbar() {
   const { identity, clear } = useInternetIdentity();
   const { data: profile } = useGetCallerUserProfile();
   const { data: conversations } = useGetMyConversations();
+  const { data: isAdmin } = useIsCallerAdmin();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -68,6 +71,16 @@ export default function Navbar() {
       )}
       {isAuthenticated && (
         <Link
+          to="/admin"
+          className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          data-ocid="nav.admin.link"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Admin
+        </Link>
+      )}
+      {isAuthenticated && (
+        <Link
           to="/settings"
           className="flex items-center gap-1.5 text-sm font-medium text-foreground/70 hover:text-primary transition-colors"
           data-ocid="nav.settings.mobile.link"
@@ -80,7 +93,13 @@ export default function Navbar() {
   );
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-card/90 backdrop-blur-md border-b border-border shadow-xs">
+    <header
+      className="sticky top-0 z-50 w-full backdrop-blur-md border-b border-border shadow-xs"
+      style={{
+        background:
+          "linear-gradient(135deg, oklch(0.94 0.06 350 / 0.92) 0%, oklch(0.93 0.055 290 / 0.92) 100%)",
+      }}
+    >
       <div className="container flex h-16 items-center gap-4">
         {/* Logo */}
         <Link
@@ -176,6 +195,17 @@ export default function Navbar() {
                     Settings
                   </Link>
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/admin"
+                      className="cursor-pointer"
+                      data-ocid="nav.admin.dropdown.link"
+                    >
+                      Admin Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}

@@ -24,103 +24,103 @@
   :root {
     --radius: 1rem;
 
-    /* Soft pink primary */
-    --primary: 0.72 0.14 340;
-    --primary-foreground: 0.98 0.01 340;
-    --primary-hover: 0.66 0.17 340;
+    /* 🌸 Warm rose-pink primary */
+    --primary: 0.78 0.13 350;
+    --primary-foreground: 0.98 0.01 350;
+    --primary-hover: 0.70 0.16 350;
 
-    /* Lavender secondary */
-    --secondary: 0.88 0.06 280;
-    --secondary-foreground: 0.3 0.08 280;
+    /* 💜 Purple-lavender secondary */
+    --secondary: 0.90 0.08 290;
+    --secondary-foreground: 0.28 0.08 290;
 
-    /* Peach accent */
-    --accent: 0.92 0.07 50;
-    --accent-foreground: 0.35 0.08 50;
+    /* 🍑 Apricot-peach accent */
+    --accent: 0.92 0.10 38;
+    --accent-foreground: 0.32 0.08 38;
 
-    /* Warm cream backgrounds */
-    --background: 0.98 0.01 60;
-    --foreground: 0.22 0.04 340;
+    /* 🤍 Soft blush-pink background — visibly pink */
+    --background: 0.96 0.025 15;
+    --foreground: 0.20 0.05 320;
 
-    /* Cards / popovers */
-    --card: 1 0 0;
-    --card-foreground: 0.22 0.04 340;
-    --popover: 1 0 0;
-    --popover-foreground: 0.22 0.04 340;
+    /* 🃏 Pinkish-white card */
+    --card: 0.985 0.022 345;
+    --card-foreground: 0.20 0.05 320;
+    --popover: 0.985 0.022 345;
+    --popover-foreground: 0.20 0.05 320;
 
-    /* Muted surfaces */
-    --muted: 0.95 0.02 330;
-    --muted-foreground: 0.55 0.04 320;
+    /* 🪻 Lavender-tinted muted surface — visibly lavender */
+    --muted: 0.93 0.04 285;
+    --muted-foreground: 0.52 0.04 310;
 
-    /* UI Chrome */
-    --border: 0.88 0.04 330;
-    --input: 0.9 0.04 330;
-    --ring: 0.72 0.14 340;
+    /* 🔲 UI chrome — soft pink borders */
+    --border: 0.88 0.055 340;
+    --input: 0.88 0.055 340;
+    --ring: 0.78 0.13 350;
 
-    /* Destructive */
+    /* 🔴 Destructive */
     --destructive: 0.577 0.245 27.325;
     --destructive-foreground: 0.985 0 0;
 
-    /* Charts */
-    --chart-1: 0.72 0.14 340;
-    --chart-2: 0.72 0.10 280;
-    --chart-3: 0.82 0.09 50;
+    /* 📊 Charts */
+    --chart-1: 0.78 0.13 350;
+    --chart-2: 0.72 0.10 290;
+    --chart-3: 0.84 0.09 38;
     --chart-4: 0.646 0.222 41.116;
     --chart-5: 0.769 0.188 70.08;
 
-    /* Sidebar */
-    --sidebar: 0.97 0.02 330;
-    --sidebar-foreground: 0.22 0.04 340;
-    --sidebar-primary: 0.72 0.14 340;
-    --sidebar-primary-foreground: 0.98 0.01 340;
-    --sidebar-accent: 0.92 0.07 50;
-    --sidebar-accent-foreground: 0.35 0.08 50;
-    --sidebar-border: 0.88 0.04 330;
-    --sidebar-ring: 0.72 0.14 340;
+    /* 🗂️ Sidebar */
+    --sidebar: 0.96 0.03 330;
+    --sidebar-foreground: 0.20 0.05 320;
+    --sidebar-primary: 0.78 0.13 350;
+    --sidebar-primary-foreground: 0.98 0.01 350;
+    --sidebar-accent: 0.92 0.10 38;
+    --sidebar-accent-foreground: 0.32 0.08 38;
+    --sidebar-border: 0.88 0.055 340;
+    --sidebar-ring: 0.78 0.13 350;
 
-    /* Custom tokens */
-    --pink-soft: 0.93 0.05 340;
-    --lavender-soft: 0.93 0.04 280;
-    --peach-soft: 0.95 0.06 50;
-    --paw-shadow: 0 4px 20px oklch(0.72 0.14 340 / 0.15);
+    /* 🎨 Custom soft-tint tokens — visibly pastel */
+    --pink-soft: 0.94 0.06 350;
+    --lavender-soft: 0.93 0.055 290;
+    --peach-soft: 0.95 0.07 38;
+    --paw-shadow: 0 4px 20px oklch(0.78 0.13 350 / 0.18);
   }
 
   .dark {
-    --background: 0.16 0.03 300;
+    --background: 0.14 0.04 300;
     --foreground: 0.95 0.02 340;
-    --card: 0.21 0.04 300;
+    --card: 0.19 0.05 300;
     --card-foreground: 0.95 0.02 340;
-    --popover: 0.24 0.04 300;
+    --popover: 0.22 0.05 300;
     --popover-foreground: 0.95 0.02 340;
-    --primary: 0.78 0.12 340;
-    --primary-foreground: 0.15 0.03 300;
-    --primary-hover: 0.84 0.10 340;
-    --secondary: 0.28 0.06 280;
-    --secondary-foreground: 0.88 0.04 280;
-    --accent: 0.32 0.07 50;
-    --accent-foreground: 0.92 0.07 50;
-    --muted: 0.26 0.04 300;
-    --muted-foreground: 0.66 0.04 310;
-    --border: 0.3 0.05 300;
+    --primary: 0.80 0.11 350;
+    --primary-foreground: 0.14 0.04 300;
+    --primary-hover: 0.86 0.09 350;
+    --secondary: 0.26 0.07 290;
+    --secondary-foreground: 0.90 0.05 290;
+    --accent: 0.30 0.08 38;
+    --accent-foreground: 0.92 0.08 38;
+    --muted: 0.24 0.04 300;
+    --muted-foreground: 0.64 0.04 310;
+    --border: 0.28 0.05 300;
     --input: 0.28 0.05 300;
-    --ring: 0.78 0.12 340;
+    --ring: 0.80 0.11 350;
     --destructive: 0.704 0.191 22.216;
     --destructive-foreground: 0.205 0 0;
-    --chart-1: 0.78 0.12 340;
-    --chart-2: 0.72 0.10 280;
-    --chart-3: 0.82 0.09 50;
+    --chart-1: 0.80 0.11 350;
+    --chart-2: 0.72 0.10 290;
+    --chart-3: 0.82 0.09 38;
     --chart-4: 0.627 0.265 303.9;
     --chart-5: 0.645 0.246 16.439;
-    --sidebar: 0.21 0.04 300;
+    --sidebar: 0.19 0.05 300;
     --sidebar-foreground: 0.95 0.02 340;
-    --sidebar-primary: 0.78 0.12 340;
-    --sidebar-primary-foreground: 0.15 0.03 300;
-    --sidebar-accent: 0.32 0.07 50;
-    --sidebar-accent-foreground: 0.92 0.07 50;
-    --sidebar-border: 0.3 0.05 300;
-    --sidebar-ring: 0.78 0.12 340;
-    --pink-soft: 0.26 0.05 340;
-    --lavender-soft: 0.26 0.05 280;
-    --peach-soft: 0.26 0.06 50;
+    --sidebar-primary: 0.80 0.11 350;
+    --sidebar-primary-foreground: 0.14 0.04 300;
+    --sidebar-accent: 0.30 0.08 38;
+    --sidebar-accent-foreground: 0.92 0.08 38;
+    --sidebar-border: 0.28 0.05 300;
+    --sidebar-ring: 0.80 0.11 350;
+    --pink-soft: 0.24 0.05 350;
+    --lavender-soft: 0.24 0.05 290;
+    --peach-soft: 0.24 0.06 38;
     --paw-shadow: 0 4px 20px oklch(0 0 0 / 0.4);
   }
 
@@ -133,17 +133,22 @@
     font-family: "Outfit", sans-serif;
   }
 
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-family: "Bricolage Grotesque", sans-serif;
   }
 }
 
 /* ── Custom Utilities ───────────────────────────────────────────────── */
 @layer utilities {
+  /* 🌸 Paw shadow utility */
   .paw-shadow {
     box-shadow: var(--paw-shadow);
   }
 
+  /* 🎨 Soft pastel tint backgrounds */
   .bg-pink-soft {
     background-color: oklch(var(--pink-soft));
   }
@@ -156,15 +161,34 @@
     background-color: oklch(var(--peach-soft));
   }
 
+  /* 🌈 Gradient utilities */
+  .gradient-paw {
+    background: linear-gradient(
+      135deg,
+      oklch(var(--pink-soft)) 0%,
+      oklch(var(--lavender-soft)) 100%
+    );
+  }
+
+  .gradient-peach-rose {
+    background: linear-gradient(
+      135deg,
+      oklch(var(--peach-soft)) 0%,
+      oklch(var(--pink-soft)) 100%
+    );
+  }
+
+  /* 🐾 Pet card hover lift */
   .pet-card-hover {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
   .pet-card-hover:hover {
     transform: translateY(-4px);
-    box-shadow: 0 12px 32px oklch(0.72 0.14 340 / 0.2);
+    box-shadow: 0 12px 32px oklch(0.78 0.13 350 / 0.22);
   }
 
+  /* 💬 Chat message bubbles */
   .message-bubble-sent {
     background: oklch(var(--primary));
     color: oklch(var(--primary-foreground));
@@ -177,6 +201,7 @@
     border-radius: 1.2rem 1.2rem 1.2rem 0.25rem;
   }
 
+  /* ✨ Subtle noise texture overlay */
   .noise-bg {
     position: relative;
   }

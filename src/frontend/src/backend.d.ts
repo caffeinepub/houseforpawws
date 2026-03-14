@@ -40,9 +40,11 @@ export interface MessageView {
     text: string;
     sender: Principal;
     timestamp: Time;
+    readBy: Array<Principal>;
 }
 export interface Stats {
     totalPets: bigint;
+    totalMessages: bigint;
     adoptedPets: bigint;
     totalUsers: bigint;
     totalConversations: bigint;
@@ -74,16 +76,11 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
-    adminBanUser(user: Principal): Promise<void>;
-    adminDeletePet(petId: string): Promise<void>;
     adminGetAllUsers(): Promise<Array<[Principal, FullUserProfile]>>;
-    adminGetBannedUsers(): Promise<Array<Principal>>;
     adminGetStats(): Promise<Stats>;
-    adminUnbanUser(user: Principal): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createPet(pet: Pet): Promise<string>;
     deletePet(petId: string): Promise<void>;
-    forceClaimAdminIfNoneExists(): Promise<boolean>;
     getAdoptedPets(isAdopted: boolean): Promise<Array<Pet>>;
     getAllPets(): Promise<Array<Pet>>;
     getCallerUserProfile(): Promise<FullUserProfile | null>;
@@ -96,6 +93,7 @@ export interface backendInterface {
     getPetsBySpecies(species: string): Promise<Array<Pet>>;
     getUserProfile(user: Principal): Promise<UserProfileResult | null>;
     isCallerAdmin(): Promise<boolean>;
+    markConversationRead(conversationId: string): Promise<void>;
     saveCallerUserProfile(profile: FullUserProfile): Promise<void>;
     sendMessage(conversationId: string, text: string): Promise<void>;
     startOrGetConversation(otherUser: Principal): Promise<string>;

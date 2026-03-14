@@ -9,10 +9,10 @@ import Order "mo:core/Order";
 import Runtime "mo:core/Runtime";
 import AccessControl "authorization/access-control";
 import Int "mo:core/Int";
+
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
-
 
 
 actor {
@@ -54,12 +54,14 @@ actor {
     sender : Principal;
     text : Text;
     timestamp : Time.Time;
+    readBy : List.List<Principal>;
   };
 
   public type MessageView = {
     sender : Principal;
     text : Text;
     timestamp : Time.Time;
+    readBy : [Principal];
   };
 
   public type ConversationView = {
@@ -67,6 +69,14 @@ actor {
     user1 : Principal;
     user2 : Principal;
     messages : [MessageView];
+  };
+
+  public type Stats = {
+    totalPets : Nat;
+    adoptedPets : Nat;
+    totalUsers : Nat;
+    totalConversations : Nat;
+    totalMessages : Nat;
   };
 
   public type PetStore = {
@@ -102,7 +112,7 @@ actor {
 
     public func toView(conversation : Conversation) : ConversationView {
       let messagesArr : [MessageView] = conversation.messages.map<Message, MessageView>(
-        func(m) { { sender = m.sender; text = m.text; timestamp = m.timestamp } }
+        func(m) { { sender = m.sender; text = m.text; timestamp = m.timestamp; readBy = m.readBy.toArray() } }
       ).toArray();
 
       {
@@ -366,6 +376,7 @@ actor {
       sender = caller;
       text;
       timestamp = Time.now();
+      readBy = List.empty<Principal>(); // Sender has read it by default
     };
 
     conversation.messages.add(newMessage);
@@ -402,7 +413,14 @@ actor {
     };
 
     let messagesIter = conversation.messages.values().map(
-      func(m) { { sender = m.sender; text = m.text; timestamp = m.timestamp } }
+      func(m) {
+        {
+          sender = m.sender;
+          text = m.text;
+          timestamp = m.timestamp;
+          readBy = m.readBy.toArray();
+        };
+      }
     );
     messagesIter.toArray();
   };
@@ -422,6 +440,95 @@ actor {
     };
 
     (conversation.user1, conversation.user2);
+  };
+
+  // New Read Receipts Functionality
+
+  public shared ({ caller }) func markConversationRead(conversationId : Text) : async () {
+    // Authorization check: Ensure only participants can mark reads
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can mark messages as read");
+    };
+
+    let conversation = switch (conversations.get(conversationId)) {
+      case (null) { Runtime.trap("Conversation not found") };
+      case (?conv) { conv };
+    };
+
+    if (caller != conversation.user1 and caller != conversation.user2) {
+      Runtime.trap("You are not a participant in this conversation");
+    };
+
+    let updatedMessages = List.empty<Message>();
+
+    for (message in conversation.messages.values()) {
+      // Only mark as read if not already in readBy and not the sender
+      let hasRead = not message.readBy.filter(func(p) { p == caller }).toArray().isEmpty();
+
+      if (message.sender != caller and not hasRead) {
+        let updatedReadBy = List.empty<Principal>();
+        for (principal in message.readBy.values()) {
+          updatedReadBy.add(principal);
+        };
+        updatedReadBy.add(caller);
+
+        let updatedMessage = {
+          sender = message.sender;
+          text = message.text;
+          timestamp = message.timestamp;
+          readBy = updatedReadBy;
+        };
+        updatedMessages.add(updatedMessage);
+      } else {
+        updatedMessages.add(message);
+      };
+    };
+
+    conversations.add(
+      conversationId,
+      {
+        id = conversation.id;
+        user1 = conversation.user1;
+        user2 = conversation.user2;
+        messages = updatedMessages;
+      },
+    );
+  };
+
+  // New Analytics Functions
+
+  public query ({ caller }) func adminGetStats() : async Stats {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can access stats");
+    };
+
+    let totalPets = petStore.pets.size();
+    let adoptedPets = petStore.pets.values().toArray().filter(func(pet) { pet.isAdopted }).size();
+
+    let totalUsers = userProfiles.size();
+    let totalConversations = conversations.size();
+
+    let totalMessages = conversations.values().foldLeft(
+      0,
+      func(acc, conv) {
+        acc + conv.messages.size();
+      },
+    );
+
+    {
+      totalPets;
+      adoptedPets;
+      totalUsers;
+      totalConversations;
+      totalMessages;
+    };
+  };
+
+  public query ({ caller }) func adminGetAllUsers() : async [(Principal, FullUserProfile)] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can access all users");
+    };
+    userProfiles.toArray();
   };
 
 };

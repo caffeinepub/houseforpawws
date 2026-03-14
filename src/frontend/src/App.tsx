@@ -13,6 +13,7 @@ import Navbar from "./components/Navbar";
 import ProfileSetupModal from "./components/ProfileSetupModal";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "./hooks/useQueries";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 import HomePage from "./pages/HomePage";
 import InboxPage from "./pages/InboxPage";
 import LoginPage from "./pages/LoginPage";
@@ -157,6 +158,12 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+const adminRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin",
+  component: AdminDashboardPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
@@ -169,6 +176,7 @@ const routeTree = rootRoute.addChildren([
   inboxRoute,
   inboxConvRoute,
   settingsRoute,
+  adminRoute,
 ]);
 
 const router = createRouter({ routeTree });

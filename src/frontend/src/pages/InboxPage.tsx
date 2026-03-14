@@ -5,7 +5,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Loader2, MessageCircle, Send } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  CheckCheck,
+  Loader2,
+  MessageCircle,
+  Send,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ConversationView } from "../backend";
@@ -14,6 +21,7 @@ import {
   useGetMessages,
   useGetMyConversations,
   useGetUserProfile,
+  useMarkConversationRead,
   useSendMessage,
 } from "../hooks/useQueries";
 
@@ -84,16 +92,22 @@ function MessageBubble({
   text,
   isSent,
   timestamp,
+  readBy,
+  otherPrincipal,
 }: {
   text: string;
   isSent: boolean;
   timestamp: bigint;
+  readBy: Array<import("@icp-sdk/core/principal").Principal>;
+  otherPrincipal: string;
 }) {
   const date = new Date(Number(timestamp / BigInt(1_000_000)));
   const timeStr = date.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  const isRead = readBy.some((p) => p.toString() === otherPrincipal);
 
   return (
     <div className={cn("flex", isSent ? "justify-end" : "justify-start")}>
@@ -106,14 +120,23 @@ function MessageBubble({
         >
           {text}
         </div>
-        <p
+        <div
           className={cn(
-            "text-[10px] text-muted-foreground",
-            isSent ? "text-right" : "text-left",
+            "flex items-center gap-1",
+            isSent ? "justify-end" : "justify-start",
           )}
         >
-          {timeStr}
-        </p>
+          <p className="text-[10px] text-muted-foreground">{timeStr}</p>
+          {isSent && (
+            <span className="ml-0.5">
+              {isRead ? (
+                <CheckCheck className="h-3.5 w-3.5 text-pink-500" />
+              ) : (
+                <Check className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -132,6 +155,7 @@ function ChatPanel({
 }) {
   const { data: messages, isLoading } = useGetMessages(conversationId);
   const { mutateAsync: sendMsg, isPending: isSending } = useSendMessage();
+  const { mutate: markRead } = useMarkConversationRead();
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -142,10 +166,16 @@ function ChatPanel({
     : undefined;
   const { data: otherProfile } = useGetUserProfile(otherPrincipal);
 
+  // Mark conversation as read on mount and when messages arrive
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mark-read on mount and message change
+  useEffect(() => {
+    markRead(conversationId);
+  }, [conversationId, messages?.length]);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional scroll-to-bottom on messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages?.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messages?.length]);
 
   const handleSend = async () => {
     const trimmed = text.trim();
@@ -225,6 +255,8 @@ function ChatPanel({
                 text={msg.text}
                 isSent={msg.sender.toString() === currentPrincipal}
                 timestamp={msg.timestamp}
+                readBy={msg.readBy}
+                otherPrincipal={otherPrincipal ?? ""}
               />
             ))}
             <div ref={bottomRef} />
@@ -314,7 +346,7 @@ export default function InboxPage() {
           {/* Sidebar */}
           <div
             className={cn(
-              "w-full md:w-80 lg:w-96 border-r border-border flex flex-col shrink-0",
+              "w-full md:w-80 lg:w-96 border-r border-border flex flex-col shrink-0 bg-pink-soft/40",
               "md:flex",
               !showSidebar && "hidden md:flex",
             )}

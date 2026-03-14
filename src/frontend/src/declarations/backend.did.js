@@ -30,6 +30,7 @@ export const FullUserProfile = IDL.Record({
 });
 export const Stats = IDL.Record({
   'totalPets' : IDL.Nat,
+  'totalMessages' : IDL.Nat,
   'adoptedPets' : IDL.Nat,
   'totalUsers' : IDL.Nat,
   'totalConversations' : IDL.Nat,
@@ -59,6 +60,7 @@ export const MessageView = IDL.Record({
   'text' : IDL.Text,
   'sender' : IDL.Principal,
   'timestamp' : Time,
+  'readBy' : IDL.Vec(IDL.Principal),
 });
 export const ConversationView = IDL.Record({
   'id' : IDL.Text,
@@ -105,16 +107,12 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-  'adminBanUser' : IDL.Func([IDL.Principal], [], []),
-  'adminDeletePet' : IDL.Func([IDL.Text], [], []),
   'adminGetAllUsers' : IDL.Func(
       [],
       [IDL.Vec(IDL.Tuple(IDL.Principal, FullUserProfile))],
       ['query'],
     ),
-  'adminGetBannedUsers' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
   'adminGetStats' : IDL.Func([], [Stats], ['query']),
-  'adminUnbanUser' : IDL.Func([IDL.Principal], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'createPet' : IDL.Func([Pet], [IDL.Text], []),
   'deletePet' : IDL.Func([IDL.Text], [], []),
@@ -138,6 +136,7 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'markConversationRead' : IDL.Func([IDL.Text], [], []),
   'saveCallerUserProfile' : IDL.Func([FullUserProfile], [], []),
   'sendMessage' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'startOrGetConversation' : IDL.Func([IDL.Principal], [IDL.Text], []),
@@ -169,6 +168,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const Stats = IDL.Record({
     'totalPets' : IDL.Nat,
+    'totalMessages' : IDL.Nat,
     'adoptedPets' : IDL.Nat,
     'totalUsers' : IDL.Nat,
     'totalConversations' : IDL.Nat,
@@ -198,6 +198,7 @@ export const idlFactory = ({ IDL }) => {
     'text' : IDL.Text,
     'sender' : IDL.Principal,
     'timestamp' : Time,
+    'readBy' : IDL.Vec(IDL.Principal),
   });
   const ConversationView = IDL.Record({
     'id' : IDL.Text,
@@ -244,16 +245,12 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-    'adminBanUser' : IDL.Func([IDL.Principal], [], []),
-    'adminDeletePet' : IDL.Func([IDL.Text], [], []),
     'adminGetAllUsers' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(IDL.Principal, FullUserProfile))],
         ['query'],
       ),
-    'adminGetBannedUsers' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
     'adminGetStats' : IDL.Func([], [Stats], ['query']),
-    'adminUnbanUser' : IDL.Func([IDL.Principal], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'createPet' : IDL.Func([Pet], [IDL.Text], []),
     'deletePet' : IDL.Func([IDL.Text], [], []),
@@ -281,6 +278,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'markConversationRead' : IDL.Func([IDL.Text], [], []),
     'saveCallerUserProfile' : IDL.Func([FullUserProfile], [], []),
     'sendMessage' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'startOrGetConversation' : IDL.Func([IDL.Principal], [IDL.Text], []),

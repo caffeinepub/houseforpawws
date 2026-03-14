@@ -265,6 +265,24 @@ export function useStartOrGetConversation() {
   });
 }
 
+export function useMarkConversationRead() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+  const principal = identity?.getPrincipal().toString();
+  return useMutation({
+    mutationFn: async (conversationId: string) => {
+      if (!actor) throw new Error("Not authenticated");
+      await actor.markConversationRead(conversationId);
+    },
+    onSuccess: (_data, conversationId) => {
+      queryClient.invalidateQueries({
+        queryKey: ["messages", conversationId, principal ?? "anonymous"],
+      });
+    },
+  });
+}
+
 // ── Admin / Stats ────────────────────────────────────────────────────────────
 
 export function useIsCallerAdmin() {
@@ -284,7 +302,7 @@ export function useIsCallerAdmin() {
   });
 }
 
-export function useAdminGetStats() {
+export function useAdminGetStats({ isAdmin }: { isAdmin: boolean }) {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
   const principal = identity?.getPrincipal().toString();
@@ -294,13 +312,13 @@ export function useAdminGetStats() {
       if (!actor) throw new Error("Not authenticated");
       return actor.adminGetStats();
     },
-    enabled: !!actor && !actorFetching && !!identity,
+    enabled: !!actor && !actorFetching && !!identity && isAdmin,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 }
 
-export function useAdminGetAllUsers() {
+export function useAdminGetAllUsers({ isAdmin }: { isAdmin: boolean }) {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
   const principal = identity?.getPrincipal().toString();
@@ -312,7 +330,7 @@ export function useAdminGetAllUsers() {
       if (!actor) throw new Error("Not authenticated");
       return actor.adminGetAllUsers();
     },
-    enabled: !!actor && !actorFetching && !!identity,
+    enabled: !!actor && !actorFetching && !!identity && isAdmin,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });

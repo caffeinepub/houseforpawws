@@ -70,6 +70,10 @@ export default {
           border: "oklch(var(--sidebar-border))",
           ring: "oklch(var(--sidebar-ring))",
         },
+        /* 🌸 Soft pastel tokens as Tailwind color entries */
+        "pink-soft": "oklch(var(--pink-soft) / <alpha-value>)",
+        "lavender-soft": "oklch(var(--lavender-soft) / <alpha-value>)",
+        "peach-soft": "oklch(var(--peach-soft) / <alpha-value>)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -80,8 +84,8 @@ export default {
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgba(0,0,0,0.05)",
-        paw: "0 4px 20px oklch(0.72 0.14 340 / 0.15)",
-        "paw-lg": "0 12px 32px oklch(0.72 0.14 340 / 0.2)",
+        paw: "0 4px 20px oklch(0.78 0.13 350 / 0.18)",
+        "paw-lg": "0 12px 32px oklch(0.78 0.13 350 / 0.24)",
       },
       keyframes: {
         "accordion-down": {

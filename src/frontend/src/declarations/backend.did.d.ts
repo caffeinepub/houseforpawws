@@ -29,6 +29,7 @@ export interface MessageView {
   'text' : string,
   'sender' : Principal,
   'timestamp' : Time,
+  'readBy' : Array<Principal>,
 }
 export interface Pet {
   'id' : string,
@@ -53,6 +54,7 @@ export interface PublicUserProfile {
 }
 export interface Stats {
   'totalPets' : bigint,
+  'totalMessages' : bigint,
   'adoptedPets' : bigint,
   'totalUsers' : bigint,
   'totalConversations' : bigint,
@@ -91,12 +93,8 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
-  'adminBanUser' : ActorMethod<[Principal], undefined>,
-  'adminDeletePet' : ActorMethod<[string], undefined>,
   'adminGetAllUsers' : ActorMethod<[], Array<[Principal, FullUserProfile]>>,
-  'adminGetBannedUsers' : ActorMethod<[], Array<Principal>>,
   'adminGetStats' : ActorMethod<[], Stats>,
-  'adminUnbanUser' : ActorMethod<[Principal], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createPet' : ActorMethod<[Pet], string>,
   'deletePet' : ActorMethod<[string], undefined>,
@@ -112,6 +110,7 @@ export interface _SERVICE {
   'getPetsBySpecies' : ActorMethod<[string], Array<Pet>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfileResult]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'markConversationRead' : ActorMethod<[string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[FullUserProfile], undefined>,
   'sendMessage' : ActorMethod<[string, string], undefined>,
   'startOrGetConversation' : ActorMethod<[Principal], string>,

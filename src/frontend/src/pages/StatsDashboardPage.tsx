@@ -90,12 +90,12 @@ export default function StatsDashboardPage() {
     data: stats,
     isLoading: statsLoading,
     isError: statsError,
-  } = useAdminGetStats();
+  } = useAdminGetStats({ isAdmin: isAdmin === true });
   const {
     data: users,
     isLoading: usersLoading,
     isError: usersError,
-  } = useAdminGetAllUsers();
+  } = useAdminGetAllUsers({ isAdmin: isAdmin === true });
 
   if (adminLoading) {
     return (
