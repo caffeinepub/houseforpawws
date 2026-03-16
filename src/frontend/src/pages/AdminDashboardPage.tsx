@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,8 +16,11 @@ import {
   MessagesSquare,
   PawPrint,
   ShieldAlert,
+  ShieldCheck,
   Users,
 } from "lucide-react";
+import { useState } from "react";
+import { useActor } from "../hooks/useActor";
 import {
   useAdminGetAllUsers,
   useAdminGetStats,
@@ -69,7 +73,15 @@ function StatCard({
 // ── Admin Dashboard Page ──────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
-  const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
+  const { actor } = useActor();
+  const {
+    data: isAdmin,
+    isLoading: adminLoading,
+    refetch: refetchAdmin,
+  } = useIsCallerAdmin();
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState(false);
 
   const { data: stats, isLoading: statsLoading } = useAdminGetStats({
     isAdmin: isAdmin === true,
@@ -77,6 +89,34 @@ export default function AdminDashboardPage() {
   const { data: users, isLoading: usersLoading } = useAdminGetAllUsers({
     isAdmin: isAdmin === true,
   });
+
+  async function handleClaimAdmin() {
+    if (!actor) return;
+    setClaiming(true);
+    setClaimError(null);
+    try {
+      const ok = await actor.resetAdminToCaller();
+      if (ok) {
+        setClaimSuccess(true);
+        // Poll until admin confirmed
+        const poll = setInterval(async () => {
+          const result = await refetchAdmin();
+          if (result.data === true) {
+            clearInterval(poll);
+            setClaiming(false);
+          }
+        }, 800);
+      } else {
+        setClaimError(
+          "Could not claim admin. Make sure you are logged in with the account that owns this app.",
+        );
+        setClaiming(false);
+      }
+    } catch (_e) {
+      setClaimError("An error occurred. Please try again.");
+      setClaiming(false);
+    }
+  }
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (adminLoading) {
@@ -111,9 +151,41 @@ export default function AdminDashboardPage() {
           <h1 className="font-display text-2xl font-bold text-foreground mb-2">
             Access Denied
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-8">
             This page is only available to the app administrator.
           </p>
+
+          {claimSuccess ? (
+            <div
+              className="flex items-center justify-center gap-2 text-green-600 font-medium"
+              data-ocid="admin.claim.success_state"
+            >
+              <ShieldCheck className="h-5 w-5" />
+              Admin granted! Loading dashboard...
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Button
+                onClick={handleClaimAdmin}
+                disabled={claiming}
+                className="w-full"
+                data-ocid="admin.claim.primary_button"
+              >
+                {claiming ? "Claiming..." : "Claim Admin (App Owner Only)"}
+              </Button>
+              {claimError && (
+                <p
+                  className="text-sm text-destructive"
+                  data-ocid="admin.claim.error_state"
+                >
+                  {claimError}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                This only works for the account that deployed this app.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

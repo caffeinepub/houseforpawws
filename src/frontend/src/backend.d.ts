@@ -94,6 +94,7 @@ export interface backendInterface {
     getUserProfile(user: Principal): Promise<UserProfileResult | null>;
     isCallerAdmin(): Promise<boolean>;
     markConversationRead(conversationId: string): Promise<void>;
+    resetAdminToCaller(): Promise<boolean>;
     saveCallerUserProfile(profile: FullUserProfile): Promise<void>;
     sendMessage(conversationId: string, text: string): Promise<void>;
     startOrGetConversation(otherUser: Principal): Promise<string>;

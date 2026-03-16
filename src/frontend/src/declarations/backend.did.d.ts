@@ -111,6 +111,7 @@ export interface _SERVICE {
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfileResult]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'markConversationRead' : ActorMethod<[string], undefined>,
+  'resetAdminToCaller' : ActorMethod<[], boolean>,
   'saveCallerUserProfile' : ActorMethod<[FullUserProfile], undefined>,
   'sendMessage' : ActorMethod<[string, string], undefined>,
   'startOrGetConversation' : ActorMethod<[Principal], string>,

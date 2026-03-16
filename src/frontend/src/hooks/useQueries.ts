@@ -293,12 +293,18 @@ export function useIsCallerAdmin() {
     queryKey: ["isCallerAdmin", principal ?? "anonymous"],
     queryFn: async () => {
       if (!actor) return false;
-      return actor.isCallerAdmin();
+      try {
+        return await actor.isCallerAdmin();
+      } catch {
+        return false;
+      }
     },
     enabled: !!actor && !actorFetching && !!identity,
     placeholderData: keepPreviousData,
     staleTime: 120_000,
+    retry: 0,
     refetchOnWindowFocus: false,
+    refetchOnMount: true,
   });
 }
 

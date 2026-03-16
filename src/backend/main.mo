@@ -9,6 +9,7 @@ import Order "mo:core/Order";
 import Runtime "mo:core/Runtime";
 import AccessControl "authorization/access-control";
 import Int "mo:core/Int";
+import Prim "mo:prim";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
@@ -442,10 +443,9 @@ actor {
     (conversation.user1, conversation.user2);
   };
 
-  // New Read Receipts Functionality
+  // Read Receipts
 
   public shared ({ caller }) func markConversationRead(conversationId : Text) : async () {
-    // Authorization check: Ensure only participants can mark reads
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can mark messages as read");
     };
@@ -462,7 +462,6 @@ actor {
     let updatedMessages = List.empty<Message>();
 
     for (message in conversation.messages.values()) {
-      // Only mark as read if not already in readBy and not the sender
       let hasRead = not message.readBy.filter(func(p) { p == caller }).toArray().isEmpty();
 
       if (message.sender != caller and not hasRead) {
@@ -495,7 +494,21 @@ actor {
     );
   };
 
-  // New Analytics Functions
+  // Admin: claim admin role -- only works if caller is the canister controller
+  public shared ({ caller }) func resetAdminToCaller() : async Bool {
+    if (not Prim.isController(caller)) {
+      return false;
+    };
+    // Ensure caller is registered
+    switch (accessControlState.userRoles.get(caller)) {
+      case (null) { accessControlState.userRoles.add(caller, #admin) };
+      case (?_) { accessControlState.userRoles.add(caller, #admin) };
+    };
+    accessControlState.adminAssigned := true;
+    true;
+  };
+
+  // Analytics Functions
 
   public query ({ caller }) func adminGetStats() : async Stats {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {

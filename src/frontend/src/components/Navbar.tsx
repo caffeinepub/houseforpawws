@@ -69,7 +69,7 @@ export default function Navbar() {
           List a Pet
         </Link>
       )}
-      {isAuthenticated && (
+      {isAdmin === true && (
         <Link
           to="/admin"
           className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
@@ -195,7 +195,7 @@ export default function Navbar() {
                     Settings
                   </Link>
                 </DropdownMenuItem>
-                {isAdmin && (
+                {isAdmin === true && (
                   <DropdownMenuItem asChild>
                     <Link
                       to="/admin"
