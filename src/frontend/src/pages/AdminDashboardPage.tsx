@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -12,22 +14,23 @@ import {
 } from "@/components/ui/table";
 import {
   Heart,
+  Loader2,
   MessageSquare,
   MessagesSquare,
   PawPrint,
-  ShieldAlert,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import { useState } from "react";
-import { useActor } from "../hooks/useActor";
 import {
   useAdminGetAllUsers,
   useAdminGetStats,
   useIsCallerAdmin,
+  useResetAdminToCaller,
 } from "../hooks/useQueries";
 
-// ── Stat Card ─────────────────────────────────────────────────────────────────
+const ADMIN_TOKEN = "cookiebiscuitoreochickupicku12345";
+
+// ── Stat Card ───────────────────────────────────────────────────────────────
 
 function StatCard({
   label,
@@ -70,18 +73,126 @@ function StatCard({
   );
 }
 
-// ── Admin Dashboard Page ──────────────────────────────────────────────────────
+// ── Token Gate ───────────────────────────────────────────────────────────────
+
+function AdminTokenGate() {
+  const [token, setToken] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const resetAdmin = useResetAdminToCaller();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (token !== ADMIN_TOKEN) {
+      setError("Incorrect token. Please try again.");
+      return;
+    }
+
+    try {
+      await resetAdmin.mutateAsync();
+      setSuccess(true);
+    } catch {
+      setError("An error occurred. Please try again.");
+    }
+  };
+
+  return (
+    <div className="min-h-[70vh] flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="bg-card rounded-3xl border border-border shadow-lg overflow-hidden">
+          {/* Header gradient */}
+          <div className="bg-gradient-to-br from-pink-100 via-lavender/40 to-peach/30 dark:from-pink-950/40 dark:via-purple-950/30 dark:to-orange-950/20 px-8 pt-10 pb-8 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/70 dark:bg-white/10 shadow-sm mb-4">
+              <PawPrint className="h-10 w-10 text-primary" />
+            </div>
+            <h1 className="font-display text-2xl font-bold text-foreground mb-1">
+              Admin Access
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Enter your admin token to access the dashboard
+            </p>
+          </div>
+
+          {/* Form */}
+          <div className="px-8 py-8">
+            {success ? (
+              <div
+                className="text-center py-4"
+                data-ocid="admin.token.success_state"
+              >
+                <div className="text-3xl mb-3">🎉</div>
+                <p className="text-sm font-medium text-primary">
+                  Admin access granted! Loading dashboard...
+                </p>
+                <div className="flex justify-center gap-1.5 mt-3">
+                  <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="admin-token"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Admin Token
+                  </Label>
+                  <Input
+                    id="admin-token"
+                    type="password"
+                    placeholder="Enter your secret token"
+                    value={token}
+                    onChange={(e) => {
+                      setToken(e.target.value);
+                      setError("");
+                    }}
+                    className="border-border/60 focus:border-primary/60 rounded-xl h-11"
+                    data-ocid="admin.token.input"
+                    autoComplete="off"
+                  />
+                </div>
+
+                {error && (
+                  <div
+                    className="text-sm text-destructive bg-destructive/8 border border-destructive/20 rounded-xl px-4 py-3"
+                    data-ocid="admin.token.error_state"
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full h-11 rounded-xl font-semibold bg-primary hover:bg-primary/90"
+                  disabled={resetAdmin.isPending || !token}
+                  data-ocid="admin.token.submit_button"
+                >
+                  {resetAdmin.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Claiming access...
+                    </>
+                  ) : (
+                    "Claim Admin Access"
+                  )}
+                </Button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Admin Dashboard Page ──────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
-  const { actor } = useActor();
-  const {
-    data: isAdmin,
-    isLoading: adminLoading,
-    refetch: refetchAdmin,
-  } = useIsCallerAdmin();
-  const [claiming, setClaiming] = useState(false);
-  const [claimError, setClaimError] = useState<string | null>(null);
-  const [claimSuccess, setClaimSuccess] = useState(false);
+  const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
 
   const { data: stats, isLoading: statsLoading } = useAdminGetStats({
     isAdmin: isAdmin === true,
@@ -90,35 +201,7 @@ export default function AdminDashboardPage() {
     isAdmin: isAdmin === true,
   });
 
-  async function handleClaimAdmin() {
-    if (!actor) return;
-    setClaiming(true);
-    setClaimError(null);
-    try {
-      const ok = await actor.resetAdminToCaller();
-      if (ok) {
-        setClaimSuccess(true);
-        // Poll until admin confirmed
-        const poll = setInterval(async () => {
-          const result = await refetchAdmin();
-          if (result.data === true) {
-            clearInterval(poll);
-            setClaiming(false);
-          }
-        }, 800);
-      } else {
-        setClaimError(
-          "Could not claim admin. Make sure you are logged in with the account that owns this app.",
-        );
-        setClaiming(false);
-      }
-    } catch (_e) {
-      setClaimError("An error occurred. Please try again.");
-      setClaiming(false);
-    }
-  }
-
-  // ── Loading state ──────────────────────────────────────────────────────────
+  // ── Loading state ────────────────────────────────────────────────────────────
   if (adminLoading) {
     return (
       <div
@@ -140,58 +223,12 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // ── Access denied ──────────────────────────────────────────────────────────
+  // ── Access denied — show token gate ─────────────────────────────────────────
   if (!isAdmin) {
-    return (
-      <div className="container max-w-2xl py-20" data-ocid="admin.denied.panel">
-        <div className="text-center bg-card rounded-3xl border border-border p-12 shadow-sm">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-destructive/10 mb-6">
-            <ShieldAlert className="h-10 w-10 text-destructive" />
-          </div>
-          <h1 className="font-display text-2xl font-bold text-foreground mb-2">
-            Access Denied
-          </h1>
-          <p className="text-muted-foreground mb-8">
-            This page is only available to the app administrator.
-          </p>
-
-          {claimSuccess ? (
-            <div
-              className="flex items-center justify-center gap-2 text-green-600 font-medium"
-              data-ocid="admin.claim.success_state"
-            >
-              <ShieldCheck className="h-5 w-5" />
-              Admin granted! Loading dashboard...
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <Button
-                onClick={handleClaimAdmin}
-                disabled={claiming}
-                className="w-full"
-                data-ocid="admin.claim.primary_button"
-              >
-                {claiming ? "Claiming..." : "Claim Admin (App Owner Only)"}
-              </Button>
-              {claimError && (
-                <p
-                  className="text-sm text-destructive"
-                  data-ocid="admin.claim.error_state"
-                >
-                  {claimError}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                This only works for the account that deployed this app.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
+    return <AdminTokenGate />;
   }
 
-  // ── Admin dashboard ────────────────────────────────────────────────────────
+  // ── Admin dashboard ────────────────────────────────────────────────────────────
   const statCards = [
     {
       label: "Total Pets Listed",

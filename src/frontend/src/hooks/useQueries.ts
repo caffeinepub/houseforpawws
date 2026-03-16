@@ -341,3 +341,21 @@ export function useAdminGetAllUsers({ isAdmin }: { isAdmin: boolean }) {
     refetchOnWindowFocus: false,
   });
 }
+
+export function useResetAdminToCaller() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+  const principal = identity?.getPrincipal().toString();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.resetAdminToCaller();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["isCallerAdmin", principal ?? "anonymous"],
+      });
+    },
+  });
+}

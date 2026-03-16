@@ -175,11 +175,36 @@ actor {
 
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
+  // isCallerAdmin is provided by MixinAuthorization above
+
+  // ── Admin helpers ────────────────────────────────────────────────────────────
+
+  // Ensure the first real user who saves a profile becomes admin automatically.
+  func maybeAutoClaimAdmin(caller : Principal) {
+    if (caller.isAnonymous()) return;
+    if (not accessControlState.adminAssigned) {
+      accessControlState.userRoles.add(caller, #admin);
+      accessControlState.adminAssigned := true;
+    };
+  };
 
   // User Profile Functions
   public shared ({ caller }) func saveCallerUserProfile(profile : FullUserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Anonymous callers cannot save profiles");
+    };
+    // Register user role if not yet assigned
+    switch (accessControlState.userRoles.get(caller)) {
+      case (null) {
+        // Auto-assign admin to very first user, otherwise regular user
+        maybeAutoClaimAdmin(caller);
+        // If admin was already assigned and caller is new, register as user
+        switch (accessControlState.userRoles.get(caller)) {
+          case (null) { accessControlState.userRoles.add(caller, #user) };
+          case (?_) {};
+        };
+      };
+      case (?_) {};
     };
     userProfiles.add(caller, profile);
   };
@@ -202,11 +227,9 @@ actor {
       case (?profile) { profile };
     };
 
-    // Owner sees full profile
     if (caller == user) {
       ?#full(fullProfile);
     } else {
-      // Others see only public fields
       ?#publicView({
         displayName = fullProfile.displayName;
         bio = fullProfile.bio;
@@ -291,7 +314,6 @@ actor {
     petStore.pets.remove(petId);
   };
 
-  // Pet Querying - Public access per spec
   public query ({ caller }) func getPet(petId : Text) : async ?Pet {
     petStore.pets.get(petId);
   };
@@ -377,7 +399,7 @@ actor {
       sender = caller;
       text;
       timestamp = Time.now();
-      readBy = List.empty<Principal>(); // Sender has read it by default
+      readBy = List.empty<Principal>();
     };
 
     conversation.messages.add(newMessage);
@@ -444,7 +466,6 @@ actor {
   };
 
   // Read Receipts
-
   public shared ({ caller }) func markConversationRead(conversationId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can mark messages as read");
@@ -494,12 +515,11 @@ actor {
     );
   };
 
-  // Admin: claim admin role -- only works if caller is the canister controller
+  // Admin: reset admin to caller (only canister controller)
   public shared ({ caller }) func resetAdminToCaller() : async Bool {
     if (not Prim.isController(caller)) {
       return false;
     };
-    // Ensure caller is registered
     switch (accessControlState.userRoles.get(caller)) {
       case (null) { accessControlState.userRoles.add(caller, #admin) };
       case (?_) { accessControlState.userRoles.add(caller, #admin) };
@@ -509,7 +529,6 @@ actor {
   };
 
   // Analytics Functions
-
   public query ({ caller }) func adminGetStats() : async Stats {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can access stats");
@@ -517,15 +536,11 @@ actor {
 
     let totalPets = petStore.pets.size();
     let adoptedPets = petStore.pets.values().toArray().filter(func(pet) { pet.isAdopted }).size();
-
     let totalUsers = userProfiles.size();
     let totalConversations = conversations.size();
-
     let totalMessages = conversations.values().foldLeft(
       0,
-      func(acc, conv) {
-        acc + conv.messages.size();
-      },
+      func(acc, conv) { acc + conv.messages.size() },
     );
 
     {
