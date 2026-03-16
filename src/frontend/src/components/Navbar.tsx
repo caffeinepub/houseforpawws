@@ -24,14 +24,12 @@ import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useGetCallerUserProfile,
   useGetMyConversations,
-  useIsCallerAdmin,
 } from "../hooks/useQueries";
 
 export default function Navbar() {
   const { identity, clear } = useInternetIdentity();
   const { data: profile } = useGetCallerUserProfile();
   const { data: conversations } = useGetMyConversations();
-  const { data: isAdmin } = useIsCallerAdmin();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -69,14 +67,14 @@ export default function Navbar() {
           List a Pet
         </Link>
       )}
-      {isAdmin === true && (
+      {isAuthenticated && (
         <Link
           to="/admin"
-          className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          className="flex items-center gap-1.5 text-sm font-medium text-foreground/70 hover:text-primary transition-colors"
           data-ocid="nav.admin.link"
         >
           <ShieldCheck className="h-4 w-4" />
-          Admin
+          Moderation
         </Link>
       )}
       {isAuthenticated && (
@@ -195,17 +193,15 @@ export default function Navbar() {
                     Settings
                   </Link>
                 </DropdownMenuItem>
-                {isAdmin === true && (
-                  <DropdownMenuItem asChild>
-                    <Link
-                      to="/admin"
-                      className="cursor-pointer"
-                      data-ocid="nav.admin.dropdown.link"
-                    >
-                      Admin Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/admin"
+                    className="cursor-pointer"
+                    data-ocid="nav.admin.dropdown.link"
+                  >
+                    Moderation
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}

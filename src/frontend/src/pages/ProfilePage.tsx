@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Camera,
+  Copy,
   Edit2,
   Loader2,
   MapPin,
@@ -28,6 +29,11 @@ import {
 } from "../hooks/useQueries";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function truncatePrincipal(principal: string): string {
+  if (principal.length <= 14) return principal;
+  return `${principal.slice(0, 8)}...${principal.slice(-4)}`;
+}
 
 export default function ProfilePage() {
   const { identity, isInitializing } = useInternetIdentity();
@@ -129,6 +135,14 @@ export default function ProfilePage() {
       setPhotoPreview(profile.profilePhoto?.getDirectURL?.());
     }
     setEditing(false);
+  };
+
+  const handleCopyPrincipal = () => {
+    const principal = identity?.getPrincipal().toString();
+    if (!principal) return;
+    navigator.clipboard.writeText(principal).then(() => {
+      toast.success("Principal ID copied!");
+    });
   };
 
   const initials = displayName?.slice(0, 2).toUpperCase() || "?";
@@ -324,6 +338,24 @@ export default function ProfilePage() {
                 <p className="text-sm text-muted-foreground mt-2 italic">
                   Your profile is empty. Click Edit to add your info!
                 </p>
+              )}
+              {identity && (
+                <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground">
+                  <span>🔑</span>
+                  <span className="font-medium">Principal ID:</span>
+                  <span className="font-mono">
+                    {truncatePrincipal(identity.getPrincipal().toString())}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyPrincipal}
+                    className="ml-0.5 p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
+                    title="Copy full Principal ID"
+                    data-ocid="profile.principal_id.button"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           )}

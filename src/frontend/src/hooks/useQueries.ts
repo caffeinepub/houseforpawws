@@ -465,3 +465,25 @@ export function useResetAdminToCaller() {
     },
   });
 }
+
+export function useClaimAdminWithToken() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+  const principal = identity?.getPrincipal().toString();
+  return useMutation({
+    mutationFn: async (token: string) => {
+      if (!actor) return false;
+      try {
+        return await (actor as any).claimAdminWithToken(token);
+      } catch {
+        return false;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["isCallerAdmin", principal ?? "anonymous"],
+      });
+    },
+  });
+}

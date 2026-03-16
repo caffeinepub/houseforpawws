@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import { Heart, PawPrint } from "lucide-react";
 
 export default function Footer() {
-  const year = new Date().getFullYear();
   const hostname =
     typeof window !== "undefined" ? window.location.hostname : "";
   const caffeineUrl = `https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(hostname)}`;
@@ -32,8 +31,8 @@ export default function Footer() {
         </nav>
 
         <p className="text-xs text-muted-foreground flex items-center gap-1">
-          © {year}. Built with{" "}
-          <Heart className="h-3 w-3 text-primary fill-primary" /> using{" "}
+          A student initiative by Bhavya Jotwani{" "}
+          <Heart className="h-3 w-3 text-primary fill-primary" /> powered by{" "}
           <a
             href={caffeineUrl}
             target="_blank"

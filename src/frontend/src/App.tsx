@@ -39,11 +39,16 @@ function RootLayout() {
   const { data: isBanned } = useIsCallerBanned();
   const queryClient = useQueryClient();
 
+  // Track whether a real profile has ever been observed for the current user.
+  // We use a ref so the value persists across renders without triggering
+  // re-renders, and we only mutate it inside effects to avoid side-effects
+  // during the render phase.
   const profileEverLoadedRef = useRef(false);
   const trackedPrincipalRef = useRef<string | undefined>(undefined);
 
   const currentPrincipal = identity?.getPrincipal().toString();
 
+  // Reset "profile ever loaded" whenever the logged-in user changes.
   useEffect(() => {
     if (currentPrincipal !== trackedPrincipalRef.current) {
       trackedPrincipalRef.current = currentPrincipal;
@@ -51,12 +56,22 @@ function RootLayout() {
     }
   }, [currentPrincipal]);
 
-  if (profile != null && currentPrincipal === trackedPrincipalRef.current) {
-    profileEverLoadedRef.current = true;
-  }
+  // Mark profile as loaded once we have real data — done in an effect so it
+  // never mutates a ref during render (which caused the previous glitching).
+  useEffect(() => {
+    if (
+      profile != null &&
+      currentPrincipal !== undefined &&
+      currentPrincipal === trackedPrincipalRef.current
+    ) {
+      profileEverLoadedRef.current = true;
+    }
+  }, [profile, currentPrincipal]);
 
   const isAuthenticated = !!identity;
 
+  // Only show the profile setup modal when we are fully settled: auth is done,
+  // the profile query has completed, and we have confirmed there is no profile.
   const showProfileSetup =
     !isInitializing &&
     !isLoggingIn &&
@@ -67,7 +82,7 @@ function RootLayout() {
     profile === null &&
     !profileEverLoadedRef.current;
 
-  // Show banned screen if actor is ready and user is confirmed banned
+  // Show banned screen only after the ban query has returned true.
   const actorReady = !actorFetching && !!identity;
   if (actorReady && isBanned === true) {
     return (

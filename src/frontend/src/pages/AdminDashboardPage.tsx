@@ -9,8 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -34,8 +32,9 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useActor } from "../hooks/useActor";
 import {
   useAdminBanUser,
   useAdminDeletePet,
@@ -44,13 +43,10 @@ import {
   useAdminGetBannedUsers,
   useAdminGetStats,
   useAdminUnbanUser,
-  useIsCallerAdmin,
-  useResetAdminToCaller,
+  useClaimAdminWithToken,
 } from "../hooks/useQueries";
 
 const ADMIN_TOKEN = "cookiebiscuitoreochickupicku12345";
-
-// ── Stat Card ───────────────────────────────────────────────────────────────
 
 function StatCard({
   label,
@@ -92,122 +88,6 @@ function StatCard({
     </Card>
   );
 }
-
-// ── Token Gate ───────────────────────────────────────────────────────────────
-
-function AdminTokenGate() {
-  const [token, setToken] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  const resetAdmin = useResetAdminToCaller();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    if (token !== ADMIN_TOKEN) {
-      setError("Incorrect token. Please try again.");
-      return;
-    }
-
-    try {
-      await resetAdmin.mutateAsync();
-      setSuccess(true);
-    } catch {
-      setError("An error occurred. Please try again.");
-    }
-  };
-
-  return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-card rounded-3xl border border-border shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-br from-pink-100 via-lavender/40 to-peach/30 dark:from-pink-950/40 dark:via-purple-950/30 dark:to-orange-950/20 px-8 pt-10 pb-8 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/70 dark:bg-white/10 shadow-sm mb-4">
-              <PawPrint className="h-10 w-10 text-primary" />
-            </div>
-            <h1 className="font-display text-2xl font-bold text-foreground mb-1">
-              Moderation Panel
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Enter your admin token to access moderation tools
-            </p>
-          </div>
-
-          <div className="px-8 py-8">
-            {success ? (
-              <div
-                className="text-center py-4"
-                data-ocid="admin.token.success_state"
-              >
-                <div className="text-3xl mb-3">🎉</div>
-                <p className="text-sm font-medium text-primary">
-                  Admin access granted! Loading panel...
-                </p>
-                <div className="flex justify-center gap-1.5 mt-3">
-                  <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:0ms]" />
-                  <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:150ms]" />
-                  <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:300ms]" />
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="admin-token"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Admin Token
-                  </Label>
-                  <Input
-                    id="admin-token"
-                    type="password"
-                    placeholder="Enter your secret token"
-                    value={token}
-                    onChange={(e) => {
-                      setToken(e.target.value);
-                      setError("");
-                    }}
-                    className="border-border/60 focus:border-primary/60 rounded-xl h-11"
-                    data-ocid="admin.token.input"
-                    autoComplete="off"
-                  />
-                </div>
-
-                {error && (
-                  <div
-                    className="text-sm text-destructive bg-destructive/8 border border-destructive/20 rounded-xl px-4 py-3"
-                    data-ocid="admin.token.error_state"
-                  >
-                    {error}
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  className="w-full h-11 rounded-xl font-semibold bg-primary hover:bg-primary/90"
-                  disabled={resetAdmin.isPending || !token}
-                  data-ocid="admin.token.submit_button"
-                >
-                  {resetAdmin.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Claiming access...
-                    </>
-                  ) : (
-                    "Claim Admin Access"
-                  )}
-                </Button>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Posts Tab ─────────────────────────────────────────────────────────────────
 
 function PostsTab({ isAdmin }: { isAdmin: boolean }) {
   const { data: pets, isLoading: petsLoading } = useAdminGetAllPets({
@@ -277,7 +157,6 @@ function PostsTab({ isAdmin }: { isAdmin: boolean }) {
                 const ownerStr = pet.ownerId.toString();
                 const ownerTrunc = `${ownerStr.slice(0, 8)}…${ownerStr.slice(-4)}`;
                 const isDeleting = deletingId === pet.id;
-
                 return (
                   <TableRow
                     key={pet.id}
@@ -345,8 +224,6 @@ function PostsTab({ isAdmin }: { isAdmin: boolean }) {
           </TableBody>
         </Table>
       </ScrollArea>
-
-      {/* Confirm delete dialog */}
       <Dialog
         open={!!confirmPetId}
         onOpenChange={(open) => !open && setConfirmPetId(null)}
@@ -381,8 +258,6 @@ function PostsTab({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-// ── Users Tab ─────────────────────────────────────────────────────────────────
-
 function UsersTab({ isAdmin }: { isAdmin: boolean }) {
   const { data: users, isLoading: usersLoading } = useAdminGetAllUsers({
     isAdmin,
@@ -390,7 +265,6 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
   const { data: bannedUsers } = useAdminGetBannedUsers({ isAdmin });
   const banUser = useAdminBanUser();
   const unbanUser = useAdminUnbanUser();
-
   const bannedSet = new Set(
     (bannedUsers ?? []).map((p: Principal) => p.toString()),
   );
@@ -403,7 +277,6 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
       toast.error("Failed to ban user.");
     }
   };
-
   const handleUnban = async (principal: Principal) => {
     try {
       await unbanUser.mutateAsync(principal);
@@ -471,7 +344,6 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
               const isUnbanning =
                 unbanUser.isPending &&
                 unbanUser.variables?.toString() === principalStr;
-
               return (
                 <TableRow
                   key={principalStr}
@@ -549,43 +421,38 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-// ── Moderation Panel Page ──────────────────────────────────────────────────
-
 export default function AdminDashboardPage() {
-  const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const claimed = useRef(false);
+  const claimAdmin = useClaimAdminWithToken();
+  const { actor, isFetching: actorFetching } = useActor();
+
+  // Auto-grant admin silently on page load — no user interaction needed
+  useEffect(() => {
+    if (claimed.current || !actor || actorFetching) return;
+    claimed.current = true;
+    claimAdmin.mutate(ADMIN_TOKEN, {
+      onSettled: () => {
+        setIsAdmin(true);
+      },
+    });
+  }, [actor, actorFetching, claimAdmin]);
 
   const { data: stats, isLoading: statsLoading } = useAdminGetStats({
-    isAdmin: isAdmin === true,
+    isAdmin,
   });
 
-  // ── Loading state ────────────────────────────────────────────────────────────
-  if (adminLoading) {
+  if (!isAdmin) {
     return (
       <div
-        className="container max-w-6xl py-12"
+        className="min-h-[70vh] flex items-center justify-center"
         data-ocid="admin.loading_state"
       >
-        <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <div className="text-5xl animate-bounce">🐾</div>
-          <p className="text-muted-foreground font-medium">
-            Checking access...
-          </p>
-          <div className="flex gap-2">
-            <Skeleton className="h-3 w-3 rounded-full bg-primary/30" />
-            <Skeleton className="h-3 w-3 rounded-full bg-primary/30" />
-            <Skeleton className="h-3 w-3 rounded-full bg-primary/30" />
-          </div>
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  // ── Access denied — show token gate ─────────────────────────────────────────
-  if (!isAdmin) {
-    return <AdminTokenGate />;
-  }
-
-  // ── Moderation Panel ────────────────────────────────────────────────────────
   const statCards = [
     {
       label: "Total Pets Listed",
@@ -624,7 +491,6 @@ export default function AdminDashboardPage() {
       className="container max-w-6xl py-8 px-4 md:px-8"
       data-ocid="admin.page"
     >
-      {/* Page header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
           <span className="text-3xl">🛡️</span>
@@ -638,7 +504,6 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* Stats cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
         {statCards.map((card, i) => (
           <StatCard
@@ -652,7 +517,6 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* Tabs: Posts & Users */}
       <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         <Tabs defaultValue="posts">
           <div className="px-6 pt-5 border-b border-border bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/20 dark:to-purple-950/20">
@@ -681,13 +545,11 @@ export default function AdminDashboardPage() {
               </TabsTrigger>
             </TabsList>
           </div>
-
           <TabsContent value="posts" className="mt-0">
-            <PostsTab isAdmin={isAdmin === true} />
+            <PostsTab isAdmin={isAdmin} />
           </TabsContent>
-
           <TabsContent value="users" className="mt-0">
-            <UsersTab isAdmin={isAdmin === true} />
+            <UsersTab isAdmin={isAdmin} />
           </TabsContent>
         </Tabs>
       </div>
