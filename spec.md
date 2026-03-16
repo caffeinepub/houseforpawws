@@ -1,24 +1,34 @@
 # HouseForPawws
 
 ## Current State
-Users can register and create pet listings without agreeing to any Terms of Service. The RegisterPage has CAPTCHA but no TOS checkbox. PetFormPage has no TOS agreement.
+The app has an Admin Dashboard at `/admin` (token-gated) that shows stats and a read-only user table. The admin can see users' display names, emails, phones, and locations. There are no moderation actions -- no way to remove posts or ban users from the dashboard.
+
+The backend has:
+- `deletePet(petId)` -- owner-only delete
+- `assignCallerUserRole(user, role)` -- role assignment
+- `getAllPets()` -- fetch all pets
+- `adminGetAllUsers()` -- fetch all users with full profiles
 
 ## Requested Changes (Diff)
 
 ### Add
-- TOS checkbox on RegisterPage -- must be checked before account creation is allowed.
-- TOS checkbox on PetFormPage -- must be checked before submitting a new listing (create mode only, not edit).
-- A simple inline Terms of Service modal/link that shows the TOS text when clicked.
+- `adminDeletePet(petId: string)` backend function -- admin can delete any pet regardless of owner
+- `adminBanUser(user: Principal)` backend function -- sets user to banned state (stored in a separate banned set)
+- `adminUnbanUser(user: Principal)` backend function -- removes ban
+- `adminGetBannedUsers()` backend function -- returns list of banned principals
+- Moderation tabs in Admin Dashboard: "Posts" and "Users"
+- Posts tab: table of all pet listings with owner display name, pet name, species, location, date, and a "Remove Post" button
+- Users tab: existing user table enhanced with a "Ban" / "Unban" button per user and a banned badge
+- Banned users should see a "Your account has been banned" message when they try to use the app
 
 ### Modify
-- RegisterPage: disable the Create Account button if TOS not agreed.
-- PetFormPage: disable the submit button if TOS not agreed (create mode only).
+- Rename "Admin Dashboard" heading to "Moderation Panel" throughout
+- Users table: add Ban/Unban action column
 
 ### Remove
-- Nothing.
+- Nothing removed
 
 ## Implementation Plan
-1. Add a `TOSModal` component with basic Terms of Service text.
-2. Add TOS checkbox + "View Terms" link to RegisterPage below the CAPTCHA.
-3. Add TOS checkbox + "View Terms" link to PetFormPage above the submit button (create mode only).
-4. Enforce: buttons disabled unless TOS accepted.
+1. Generate new Motoko backend with `adminDeletePet`, `adminBanUser`, `adminUnbanUser`, `adminGetBannedUsers` functions
+2. Update AdminDashboardPage to have Posts and Users tabs with moderation actions
+3. Add banned user check in App/Navbar to show banned message

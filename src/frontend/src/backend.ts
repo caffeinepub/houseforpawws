@@ -169,8 +169,12 @@ export interface backendInterface {
     _caffeineStorageRefillCashier(refillInformation: _CaffeineStorageRefillInformation | null): Promise<_CaffeineStorageRefillResult>;
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    adminBanUser(user: Principal): Promise<boolean>;
+    adminDeletePet(petId: string): Promise<void>;
     adminGetAllUsers(): Promise<Array<[Principal, FullUserProfile]>>;
+    adminGetBannedUsers(): Promise<Array<Principal>>;
     adminGetStats(): Promise<Stats>;
+    adminUnbanUser(user: Principal): Promise<boolean>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createPet(pet: Pet): Promise<string>;
     deletePet(petId: string): Promise<void>;
@@ -186,6 +190,7 @@ export interface backendInterface {
     getPetsBySpecies(species: string): Promise<Array<Pet>>;
     getUserProfile(user: Principal): Promise<UserProfileResult | null>;
     isCallerAdmin(): Promise<boolean>;
+    isCallerBanned(): Promise<boolean>;
     markConversationRead(conversationId: string): Promise<void>;
     resetAdminToCaller(): Promise<boolean>;
     saveCallerUserProfile(profile: FullUserProfile): Promise<void>;
@@ -294,6 +299,34 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async adminBanUser(arg0: Principal): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.adminBanUser(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.adminBanUser(arg0);
+            return result;
+        }
+    }
+    async adminDeletePet(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.adminDeletePet(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.adminDeletePet(arg0);
+            return result;
+        }
+    }
     async adminGetAllUsers(): Promise<Array<[Principal, FullUserProfile]>> {
         if (this.processError) {
             try {
@@ -308,6 +341,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
         }
     }
+    async adminGetBannedUsers(): Promise<Array<Principal>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.adminGetBannedUsers();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.adminGetBannedUsers();
+            return result;
+        }
+    }
     async adminGetStats(): Promise<Stats> {
         if (this.processError) {
             try {
@@ -319,6 +366,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.adminGetStats();
+            return result;
+        }
+    }
+    async adminUnbanUser(arg0: Principal): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.adminUnbanUser(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.adminUnbanUser(arg0);
             return result;
         }
     }
@@ -538,17 +599,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async resetAdminToCaller(): Promise<boolean> {
+    async isCallerBanned(): Promise<boolean> {
         if (this.processError) {
             try {
-                const result = await this.actor.resetAdminToCaller();
+                const result = await this.actor.isCallerBanned();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.resetAdminToCaller();
+            const result = await this.actor.isCallerBanned();
             return result;
         }
     }
@@ -563,6 +624,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.markConversationRead(arg0);
+            return result;
+        }
+    }
+    async resetAdminToCaller(): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.resetAdminToCaller();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.resetAdminToCaller();
             return result;
         }
     }

@@ -1,6 +1,7 @@
 import Text "mo:core/Text";
 import Array "mo:core/Array";
 import Map "mo:core/Map";
+import Set "mo:core/Set";
 import List "mo:core/List";
 import Time "mo:core/Time";
 import Principal "mo:core/Principal";
@@ -10,11 +11,9 @@ import Runtime "mo:core/Runtime";
 import AccessControl "authorization/access-control";
 import Int "mo:core/Int";
 import Prim "mo:prim";
-
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
-
 
 actor {
   include MixinStorage();
@@ -172,14 +171,11 @@ actor {
   var petStore = PetStore.init();
   let userProfiles = Map.empty<Principal, FullUserProfile>();
   let conversations = Map.empty<Text, Conversation>();
+  let bannedUsers = Set.empty<Principal>();
 
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
-  // isCallerAdmin is provided by MixinAuthorization above
 
-  // ── Admin helpers ────────────────────────────────────────────────────────────
-
-  // Ensure the first real user who saves a profile becomes admin automatically.
   func maybeAutoClaimAdmin(caller : Principal) {
     if (caller.isAnonymous()) return;
     if (not accessControlState.adminAssigned) {
@@ -188,17 +184,22 @@ actor {
     };
   };
 
-  // User Profile Functions
+  func checkNotBanned(caller : Principal) {
+    if (bannedUsers.contains(caller)) {
+      Runtime.trap("Unauthorized: User is banned");
+    };
+  };
+
   public shared ({ caller }) func saveCallerUserProfile(profile : FullUserProfile) : async () {
     if (caller.isAnonymous()) {
       Runtime.trap("Anonymous callers cannot save profiles");
     };
-    // Register user role if not yet assigned
+
+    checkNotBanned(caller);
+
     switch (accessControlState.userRoles.get(caller)) {
       case (null) {
-        // Auto-assign admin to very first user, otherwise regular user
         maybeAutoClaimAdmin(caller);
-        // If admin was already assigned and caller is new, register as user
         switch (accessControlState.userRoles.get(caller)) {
           case (null) { accessControlState.userRoles.add(caller, #user) };
           case (?_) {};
@@ -213,6 +214,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view their profile");
     };
+    checkNotBanned(caller);
     userProfiles.get(caller);
   };
 
@@ -228,6 +230,10 @@ actor {
     };
 
     if (caller == user) {
+      if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+        Runtime.trap("Unauthorized: Only users can view their profile");
+      };
+      checkNotBanned(caller);
       ?#full(fullProfile);
     } else {
       ?#publicView({
@@ -239,7 +245,6 @@ actor {
     };
   };
 
-  // Pet Functions
   module Pet {
     public func compare(pet1 : Pet, pet2 : Pet) : Order.Order {
       switch (Text.compare(pet1.id, pet2.id)) {
@@ -262,11 +267,11 @@ actor {
     id;
   };
 
-  // Pet Management
   public shared ({ caller }) func createPet(pet : Pet) : async Text {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can create pets");
     };
+    checkNotBanned(caller);
 
     let petId = generatePetId();
     let newPet : Pet = {
@@ -283,6 +288,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can update pets");
     };
+    checkNotBanned(caller);
 
     let existingPet = switch (petStore.pets.get(petId)) {
       case (null) { Runtime.trap("Pet not found") };
@@ -301,6 +307,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can delete pets");
     };
+    checkNotBanned(caller);
 
     let pet = switch (petStore.pets.get(petId)) {
       case (null) { Runtime.trap("Pet not found") };
@@ -349,7 +356,6 @@ actor {
     iter.toArray();
   };
 
-  // Conversation ID generation
   func generateConversationId(user1 : Principal, user2 : Principal) : Text {
     if (user1.toText() < user2.toText()) {
       user1.toText() # "-" # user2.toText();
@@ -358,11 +364,11 @@ actor {
     };
   };
 
-  // Messaging Functions
   public shared ({ caller }) func startOrGetConversation(otherUser : Principal) : async Text {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can start conversations");
     };
+    checkNotBanned(caller);
 
     let conversationId = generateConversationId(caller, otherUser);
 
@@ -385,6 +391,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can send messages");
     };
+    checkNotBanned(caller);
 
     let conversation = switch (conversations.get(conversationId)) {
       case (null) { Runtime.trap("Conversation not found") };
@@ -409,6 +416,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view conversations");
     };
+    checkNotBanned(caller);
 
     let filteredIterations = conversations.values().filter(
       func(conv) {
@@ -425,6 +433,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view messages");
     };
+    checkNotBanned(caller);
 
     let conversation = switch (conversations.get(conversationId)) {
       case (null) { Runtime.trap("Conversation not found") };
@@ -452,6 +461,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view conversation participants");
     };
+    checkNotBanned(caller);
 
     let conversation = switch (conversations.get(conversationId)) {
       case (null) { Runtime.trap("Conversation not found") };
@@ -465,11 +475,11 @@ actor {
     (conversation.user1, conversation.user2);
   };
 
-  // Read Receipts
   public shared ({ caller }) func markConversationRead(conversationId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can mark messages as read");
     };
+    checkNotBanned(caller);
 
     let conversation = switch (conversations.get(conversationId)) {
       case (null) { Runtime.trap("Conversation not found") };
@@ -515,20 +525,22 @@ actor {
     );
   };
 
-  // Admin: reset admin to caller (only canister controller)
   public shared ({ caller }) func resetAdminToCaller() : async Bool {
     if (not Prim.isController(caller)) {
       return false;
     };
-    switch (accessControlState.userRoles.get(caller)) {
-      case (null) { accessControlState.userRoles.add(caller, #admin) };
-      case (?_) { accessControlState.userRoles.add(caller, #admin) };
+
+    if (accessControlState.adminAssigned) {
+      if (not AccessControl.isAdmin(accessControlState, caller)) {
+        return false;
+      };
     };
+
+    accessControlState.userRoles.add(caller, #admin);
     accessControlState.adminAssigned := true;
     true;
   };
 
-  // Analytics Functions
   public query ({ caller }) func adminGetStats() : async Stats {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can access stats");
@@ -559,4 +571,46 @@ actor {
     userProfiles.toArray();
   };
 
+  public shared ({ caller }) func adminDeletePet(petId : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete pets");
+    };
+    if (not petStore.pets.containsKey(petId)) {
+      Runtime.trap("Pet not found");
+    };
+    petStore.pets.remove(petId);
+  };
+
+  public shared ({ caller }) func adminBanUser(user : Principal) : async Bool {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can ban users");
+    };
+    if (bannedUsers.contains(user)) {
+      return false;
+    };
+    bannedUsers.add(user);
+    true;
+  };
+
+  public shared ({ caller }) func adminUnbanUser(user : Principal) : async Bool {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can unban users");
+    };
+    if (not bannedUsers.contains(user)) {
+      return false;
+    };
+    bannedUsers.remove(user);
+    true;
+  };
+
+  public query ({ caller }) func adminGetBannedUsers() : async [Principal] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view banned users");
+    };
+    bannedUsers.toArray();
+  };
+
+  public query ({ caller }) func isCallerBanned() : async Bool {
+    bannedUsers.contains(caller);
+  };
 };

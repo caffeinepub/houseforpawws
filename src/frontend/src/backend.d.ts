@@ -76,8 +76,12 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
+    adminBanUser(user: Principal): Promise<boolean>;
+    adminDeletePet(petId: string): Promise<void>;
     adminGetAllUsers(): Promise<Array<[Principal, FullUserProfile]>>;
+    adminGetBannedUsers(): Promise<Array<Principal>>;
     adminGetStats(): Promise<Stats>;
+    adminUnbanUser(user: Principal): Promise<boolean>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createPet(pet: Pet): Promise<string>;
     deletePet(petId: string): Promise<void>;
@@ -93,6 +97,7 @@ export interface backendInterface {
     getPetsBySpecies(species: string): Promise<Array<Pet>>;
     getUserProfile(user: Principal): Promise<UserProfileResult | null>;
     isCallerAdmin(): Promise<boolean>;
+    isCallerBanned(): Promise<boolean>;
     markConversationRead(conversationId: string): Promise<void>;
     resetAdminToCaller(): Promise<boolean>;
     saveCallerUserProfile(profile: FullUserProfile): Promise<void>;

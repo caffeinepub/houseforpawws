@@ -204,7 +204,6 @@ export function useGetMyConversations() {
       return actor.getMyConversations();
     },
     enabled: !!actor && !actorFetching && !!identity,
-    // Only poll when tab is visible, at a slower rate
     refetchInterval: (_query) =>
       document.visibilityState === "visible" ? 15_000 : false,
     refetchIntervalInBackground: false,
@@ -223,7 +222,6 @@ export function useGetMessages(conversationId: string | undefined) {
       return actor.getMessages(conversationId);
     },
     enabled: !!actor && !actorFetching && !!conversationId && !!identity,
-    // Poll messages only when tab is visible
     refetchInterval: (_query) =>
       document.visibilityState === "visible" ? 5_000 : false,
     refetchIntervalInBackground: false,
@@ -308,6 +306,27 @@ export function useIsCallerAdmin() {
   });
 }
 
+export function useIsCallerBanned() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const principal = identity?.getPrincipal().toString();
+  return useQuery<boolean>({
+    queryKey: ["isCallerBanned", principal ?? "anonymous"],
+    queryFn: async () => {
+      if (!actor) return false;
+      try {
+        return await actor.isCallerBanned();
+      } catch {
+        return false;
+      }
+    },
+    enabled: !!actor && !actorFetching && !!identity,
+    staleTime: 60_000,
+    retry: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function useAdminGetStats({ isAdmin }: { isAdmin: boolean }) {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
@@ -335,6 +354,93 @@ export function useAdminGetAllUsers({ isAdmin }: { isAdmin: boolean }) {
     queryFn: async () => {
       if (!actor) throw new Error("Not authenticated");
       return actor.adminGetAllUsers();
+    },
+    enabled: !!actor && !actorFetching && !!identity && isAdmin,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useAdminGetAllPets({ isAdmin }: { isAdmin: boolean }) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const principal = identity?.getPrincipal().toString();
+  return useQuery<Pet[]>({
+    queryKey: ["adminAllPets", principal ?? "anonymous"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.getAllPets();
+    },
+    enabled: !!actor && !actorFetching && !!identity && isAdmin,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useAdminDeletePet() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+  const principal = identity?.getPrincipal().toString();
+  return useMutation({
+    mutationFn: async (petId: string) => {
+      if (!actor) throw new Error("Not authenticated");
+      await actor.adminDeletePet(petId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["adminAllPets", principal ?? "anonymous"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["allPets"] });
+    },
+  });
+}
+
+export function useAdminBanUser() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+  const principal = identity?.getPrincipal().toString();
+  return useMutation({
+    mutationFn: async (user: Principal) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.adminBanUser(user);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["adminBannedUsers", principal ?? "anonymous"],
+      });
+    },
+  });
+}
+
+export function useAdminUnbanUser() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+  const principal = identity?.getPrincipal().toString();
+  return useMutation({
+    mutationFn: async (user: Principal) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.adminUnbanUser(user);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["adminBannedUsers", principal ?? "anonymous"],
+      });
+    },
+  });
+}
+
+export function useAdminGetBannedUsers({ isAdmin }: { isAdmin: boolean }) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const principal = identity?.getPrincipal().toString();
+  return useQuery<Array<Principal>>({
+    queryKey: ["adminBannedUsers", principal ?? "anonymous"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.adminGetBannedUsers();
     },
     enabled: !!actor && !actorFetching && !!identity && isAdmin,
     staleTime: 60_000,

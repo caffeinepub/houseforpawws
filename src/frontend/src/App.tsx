@@ -11,8 +11,9 @@ import { useEffect, useRef } from "react";
 import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
 import ProfileSetupModal from "./components/ProfileSetupModal";
+import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
-import { useGetCallerUserProfile } from "./hooks/useQueries";
+import { useGetCallerUserProfile, useIsCallerBanned } from "./hooks/useQueries";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import HomePage from "./pages/HomePage";
 import InboxPage from "./pages/InboxPage";
@@ -28,12 +29,14 @@ import SettingsPage from "./pages/SettingsPage";
 
 function RootLayout() {
   const { identity, isInitializing, isLoggingIn } = useInternetIdentity();
+  const { isFetching: actorFetching } = useActor();
   const {
     data: profile,
     isLoading: profileLoading,
     isFetched,
     isRefetching: profileRefetching,
   } = useGetCallerUserProfile();
+  const { data: isBanned } = useIsCallerBanned();
   const queryClient = useQueryClient();
 
   const profileEverLoadedRef = useRef(false);
@@ -63,6 +66,25 @@ function RootLayout() {
     isFetched &&
     profile === null &&
     !profileEverLoadedRef.current;
+
+  // Show banned screen if actor is ready and user is confirmed banned
+  const actorReady = !actorFetching && !!identity;
+  if (actorReady && isBanned === true) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center max-w-md px-6">
+          <div className="text-6xl mb-4">🚫</div>
+          <h1 className="font-display text-2xl font-bold text-foreground mb-2">
+            Account Banned
+          </h1>
+          <p className="text-muted-foreground">
+            Your account has been banned from HouseForPawws. If you believe this
+            is a mistake, please contact the administrator.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
