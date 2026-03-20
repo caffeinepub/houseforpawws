@@ -26,6 +26,9 @@ import {
   useGetMyConversations,
 } from "../hooks/useQueries";
 
+const OWNER_PRINCIPAL =
+  "p2fqy-qgzuc-uukdf-hkp5z-yxtnz-6gdx7-ogpj3-7hguy-4iaw3-kyogu-cae";
+
 export default function Navbar() {
   const { identity, clear } = useInternetIdentity();
   const { data: profile } = useGetCallerUserProfile();
@@ -36,6 +39,7 @@ export default function Navbar() {
 
   const isAuthenticated = !!identity;
   const hasConversations = (conversations?.length ?? 0) > 0;
+  const isOwner = identity?.getPrincipal().toString() === OWNER_PRINCIPAL;
 
   const handleLogout = async () => {
     await clear();
@@ -67,7 +71,7 @@ export default function Navbar() {
           List a Pet
         </Link>
       )}
-      {isAuthenticated && (
+      {isOwner && (
         <Link
           to="/admin"
           className="flex items-center gap-1.5 text-sm font-medium text-foreground/70 hover:text-primary transition-colors"
@@ -92,7 +96,7 @@ export default function Navbar() {
 
   return (
     <header
-      className="sticky top-0 z-50 w-full backdrop-blur-md border-b border-border shadow-xs"
+      className="sticky top-0 z-50 w-full backdrop-blur-md border-b border-primary/10 shadow-xs"
       style={{
         background:
           "linear-gradient(135deg, oklch(0.94 0.06 350 / 0.92) 0%, oklch(0.93 0.055 290 / 0.92) 100%)",
@@ -105,10 +109,10 @@ export default function Navbar() {
           className="flex items-center gap-2 shrink-0"
           data-ocid="nav.logo.link"
         >
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <PawPrint className="h-4 w-4 text-primary-foreground" />
+          <div className="w-8 h-8 rounded-full gradient-paw flex items-center justify-center">
+            <PawPrint className="h-4 w-4 text-foreground" />
           </div>
-          <span className="font-display font-bold text-xl text-foreground hidden sm:block">
+          <span className="font-display font-bold text-xl text-foreground hidden sm:block drop-shadow-sm">
             House<span className="text-primary">For</span>Pawws
           </span>
         </Link>
@@ -193,15 +197,17 @@ export default function Navbar() {
                     Settings
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to="/admin"
-                    className="cursor-pointer"
-                    data-ocid="nav.admin.dropdown.link"
-                  >
-                    Moderation
-                  </Link>
-                </DropdownMenuItem>
+                {isOwner && (
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/admin"
+                      className="cursor-pointer"
+                      data-ocid="nav.admin.dropdown.link"
+                    >
+                      Moderation
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
@@ -225,7 +231,11 @@ export default function Navbar() {
               <Button
                 size="sm"
                 asChild
-                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full"
+                className="rounded-full text-white hover:opacity-90"
+                style={{
+                  background:
+                    "linear-gradient(to right, oklch(var(--primary)), oklch(0.72 0.1 290))",
+                }}
                 data-ocid="nav.register.button"
               >
                 <Link to="/register">Sign Up</Link>

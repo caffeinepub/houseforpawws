@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -23,18 +24,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Principal } from "@icp-sdk/core/principal";
 import {
   Ban,
+  BarChart2,
   Heart,
   Loader2,
   MessageSquare,
   MessagesSquare,
   PawPrint,
+  ShieldAlert,
   ShieldCheck,
   Trash2,
   Users,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { useActor } from "../hooks/useActor";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useAdminBanUser,
   useAdminDeletePet,
@@ -43,10 +46,10 @@ import {
   useAdminGetBannedUsers,
   useAdminGetStats,
   useAdminUnbanUser,
-  useClaimAdminWithToken,
 } from "../hooks/useQueries";
 
-const ADMIN_TOKEN = "cookiebiscuitoreochickupicku12345";
+const OWNER_PRINCIPAL =
+  "p2fqy-qgzuc-uukdf-hkp5z-yxtnz-6gdx7-ogpj3-7hguy-4iaw3-kyogu-cae";
 
 function StatCard({
   label,
@@ -421,34 +424,306 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-export default function AdminDashboardPage() {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const claimed = useRef(false);
-  const claimAdmin = useClaimAdminWithToken();
-  const { actor, isFetching: actorFetching } = useActor();
-
-  // Auto-grant admin silently on page load — no user interaction needed
-  useEffect(() => {
-    if (claimed.current || !actor || actorFetching) return;
-    claimed.current = true;
-    claimAdmin.mutate(ADMIN_TOKEN, {
-      onSettled: () => {
-        setIsAdmin(true);
-      },
-    });
-  }, [actor, actorFetching, claimAdmin]);
-
+function StatisticsTab({ isAdmin }: { isAdmin: boolean }) {
   const { data: stats, isLoading: statsLoading } = useAdminGetStats({
     isAdmin,
   });
+  const { data: pets, isLoading: petsLoading } = useAdminGetAllPets({
+    isAdmin,
+  });
+  const { data: users, isLoading: usersLoading } = useAdminGetAllUsers({
+    isAdmin,
+  });
+  const { data: bannedUsers } = useAdminGetBannedUsers({ isAdmin });
 
-  if (!isAdmin) {
+  const totalPets = stats ? Number(stats.totalPets) : 0;
+  const adoptedPets = stats ? Number(stats.adoptedPets) : 0;
+  const availablePets = totalPets - adoptedPets;
+  const adoptionRate =
+    totalPets > 0 ? Math.round((adoptedPets / totalPets) * 100) : 0;
+  const totalUsers = stats ? Number(stats.totalUsers) : 0;
+  const totalConversations = stats ? Number(stats.totalConversations) : 0;
+  const totalMessages = stats ? Number(stats.totalMessages) : 0;
+  const bannedCount = bannedUsers?.length ?? 0;
+  const avgMessagesPerConv =
+    totalConversations > 0
+      ? (totalMessages / totalConversations).toFixed(1)
+      : "0";
+
+  // Species breakdown from pet data
+  const speciesMap: Record<string, number> = {};
+  if (pets) {
+    for (const pet of pets) {
+      const key = pet.species?.toLowerCase() || "unknown";
+      speciesMap[key] = (speciesMap[key] ?? 0) + 1;
+    }
+  }
+  const speciesList = Object.entries(speciesMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+
+  // Location breakdown from users
+  const locationMap: Record<string, number> = {};
+  if (users) {
+    for (const [, profile] of users) {
+      const loc = profile.location?.trim() || "Unknown";
+      locationMap[loc] = (locationMap[loc] ?? 0) + 1;
+    }
+  }
+  const locationList = Object.entries(locationMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const isLoading = statsLoading || petsLoading || usersLoading;
+
+  return (
+    <ScrollArea className="h-[560px]">
+      <div className="p-6 space-y-6">
+        {/* Key metrics grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[
+            {
+              label: "Total Users",
+              value: totalUsers,
+              icon: Users,
+              color: "bg-purple-50 dark:bg-purple-950/30",
+            },
+            {
+              label: "Total Pets Listed",
+              value: totalPets,
+              icon: PawPrint,
+              color: "bg-pink-50 dark:bg-pink-950/30",
+            },
+            {
+              label: "Pets Adopted",
+              value: adoptedPets,
+              icon: Heart,
+              color: "bg-rose-50 dark:bg-rose-950/30",
+            },
+            {
+              label: "Pets Available",
+              value: availablePets,
+              icon: PawPrint,
+              color: "bg-green-50 dark:bg-green-950/30",
+            },
+            {
+              label: "Conversations",
+              value: totalConversations,
+              icon: MessagesSquare,
+              color: "bg-blue-50 dark:bg-blue-950/30",
+            },
+            {
+              label: "Messages Sent",
+              value: totalMessages,
+              icon: MessageSquare,
+              color: "bg-peach/30 dark:bg-orange-950/30",
+            },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <Card key={label} className={`border-0 shadow-sm ${color}`}>
+              <CardContent className="pt-4 pb-4 px-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {label}
+                  </span>
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <p className="text-2xl font-bold font-display text-foreground">
+                    {value.toLocaleString()}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Adoption rate */}
+        {!isLoading && (
+          <Card className="border-border/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Heart className="h-4 w-4 text-rose-500" />
+                Adoption Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {adoptedPets} of {totalPets} pets adopted
+                </span>
+                <span className="font-bold font-display text-lg text-rose-500">
+                  {adoptionRate}%
+                </span>
+              </div>
+              <Progress value={adoptionRate} className="h-3 rounded-full" />
+              <div className="flex gap-4 text-xs text-muted-foreground pt-1">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-rose-400 inline-block" />
+                  Adopted: {adoptedPets}
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-pink-300 inline-block" />
+                  Available: {availablePets}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Engagement stats */}
+        {!isLoading && totalConversations > 0 && (
+          <Card className="border-border/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <MessagesSquare className="h-4 w-4 text-blue-500" />
+                Engagement
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-muted/40 rounded-xl">
+                <p className="text-2xl font-bold font-display">
+                  {avgMessagesPerConv}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Avg messages / conversation
+                </p>
+              </div>
+              <div className="text-center p-3 bg-muted/40 rounded-xl">
+                <p className="text-2xl font-bold font-display">
+                  {totalUsers > 0
+                    ? (totalConversations / totalUsers).toFixed(1)
+                    : "0"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Avg conversations / user
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Species breakdown */}
+        {speciesList.length > 0 && (
+          <Card className="border-border/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <PawPrint className="h-4 w-4 text-primary" />
+                Pets by Species
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {speciesList.map(([species, count]) => (
+                <div key={species} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="capitalize text-foreground font-medium">
+                      {species}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {count} (
+                      {totalPets > 0
+                        ? Math.round((count / totalPets) * 100)
+                        : 0}
+                      %)
+                    </span>
+                  </div>
+                  <Progress
+                    value={totalPets > 0 ? (count / totalPets) * 100 : 0}
+                    className="h-2 rounded-full"
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* User locations */}
+        {locationList.length > 0 && (
+          <Card className="border-border/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Users className="h-4 w-4 text-purple-500" />
+                Top User Locations
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {locationList.map(([location, count], i) => (
+                <div key={location} className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-4">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm flex-1 truncate text-foreground">
+                    {location}
+                  </span>
+                  <Badge variant="secondary" className="text-xs shrink-0">
+                    {count} user{count !== 1 ? "s" : ""}
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* User safety */}
+        {!isLoading && (
+          <Card className="border-border/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-green-500" />
+                User Safety
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-green-50 dark:bg-green-950/20 rounded-xl">
+                <p className="text-2xl font-bold font-display text-green-600">
+                  {totalUsers - bannedCount}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Active users
+                </p>
+              </div>
+              <div className="text-center p-3 bg-red-50 dark:bg-red-950/20 rounded-xl">
+                <p className="text-2xl font-bold font-display text-red-500">
+                  {bannedCount}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Banned users
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </ScrollArea>
+  );
+}
+
+export default function AdminDashboardPage() {
+  const { identity } = useInternetIdentity();
+  const isOwner = identity?.getPrincipal().toString() === OWNER_PRINCIPAL;
+
+  const { data: stats, isLoading: statsLoading } = useAdminGetStats({
+    isAdmin: isOwner,
+  });
+
+  if (!isOwner) {
     return (
       <div
         className="min-h-[70vh] flex items-center justify-center"
-        data-ocid="admin.loading_state"
+        data-ocid="admin.error_state"
       >
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm px-6">
+          <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <ShieldAlert className="h-7 w-7 text-destructive" />
+          </div>
+          <h2 className="font-display text-2xl font-bold text-foreground">
+            Access Denied
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            This page is only accessible to the site owner.
+          </p>
+        </div>
       </div>
     );
   }
@@ -499,7 +774,7 @@ export default function AdminDashboardPage() {
           </h1>
         </div>
         <p className="text-muted-foreground ml-12">
-          Monitor posts, remove listings, and manage user accounts — visible
+          Monitor posts, view statistics, and manage user accounts — visible
           only to you.
         </p>
       </div>
@@ -543,13 +818,24 @@ export default function AdminDashboardPage() {
                 <Users className="h-4 w-4 mr-2" />
                 Users
               </TabsTrigger>
+              <TabsTrigger
+                value="statistics"
+                className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-white/20"
+                data-ocid="admin.statistics.tab"
+              >
+                <BarChart2 className="h-4 w-4 mr-2" />
+                Statistics
+              </TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="posts" className="mt-0">
-            <PostsTab isAdmin={isAdmin} />
+            <PostsTab isAdmin={isOwner} />
           </TabsContent>
           <TabsContent value="users" className="mt-0">
-            <UsersTab isAdmin={isAdmin} />
+            <UsersTab isAdmin={isOwner} />
+          </TabsContent>
+          <TabsContent value="statistics" className="mt-0">
+            <StatisticsTab isAdmin={isOwner} />
           </TabsContent>
         </Tabs>
       </div>

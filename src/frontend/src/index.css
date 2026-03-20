@@ -1,0 +1,217 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── HouseForPawws Font Faces ───────────────────────────────────────── */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Outfit";
+  src: url("/assets/fonts/Outfit.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Design Tokens (Light Mode) ─────────────────────────────────────── */
+@layer base {
+  :root {
+    --radius: 1rem;
+
+    /* 🌸 Warm rose-pink primary */
+    --primary: 0.78 0.13 350;
+    --primary-foreground: 0.98 0.01 350;
+    --primary-hover: 0.7 0.16 350;
+
+    /* 💜 Purple-lavender secondary */
+    --secondary: 0.9 0.08 290;
+    --secondary-foreground: 0.28 0.08 290;
+
+    /* 🍑 Apricot-peach accent */
+    --accent: 0.92 0.1 38;
+    --accent-foreground: 0.32 0.08 38;
+
+    /* 🤍 Soft blush-pink background — visibly pink */
+    --background: 0.96 0.025 15;
+    --foreground: 0.2 0.05 320;
+
+    /* 🃏 Pinkish-white card */
+    --card: 0.985 0.022 345;
+    --card-foreground: 0.2 0.05 320;
+    --popover: 0.985 0.022 345;
+    --popover-foreground: 0.2 0.05 320;
+
+    /* 🪻 Lavender-tinted muted surface — visibly lavender */
+    --muted: 0.93 0.04 285;
+    --muted-foreground: 0.52 0.04 310;
+
+    /* 🔲 UI chrome — soft pink borders */
+    --border: 0.88 0.055 340;
+    --input: 0.88 0.055 340;
+    --ring: 0.78 0.13 350;
+
+    /* 🔴 Destructive */
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+
+    /* 📊 Charts */
+    --chart-1: 0.78 0.13 350;
+    --chart-2: 0.72 0.1 290;
+    --chart-3: 0.84 0.09 38;
+    --chart-4: 0.646 0.222 41.116;
+    --chart-5: 0.769 0.188 70.08;
+
+    /* 🗂️ Sidebar */
+    --sidebar: 0.96 0.03 330;
+    --sidebar-foreground: 0.2 0.05 320;
+    --sidebar-primary: 0.78 0.13 350;
+    --sidebar-primary-foreground: 0.98 0.01 350;
+    --sidebar-accent: 0.92 0.1 38;
+    --sidebar-accent-foreground: 0.32 0.08 38;
+    --sidebar-border: 0.88 0.055 340;
+    --sidebar-ring: 0.78 0.13 350;
+
+    /* 🎨 Custom soft-tint tokens — visibly pastel */
+    --pink-soft: 0.94 0.06 350;
+    --lavender-soft: 0.93 0.055 290;
+    --peach-soft: 0.95 0.07 38;
+    --paw-shadow: 0 4px 20px oklch(0.78 0.13 350 / 0.18);
+  }
+
+  .dark {
+    --background: 0.14 0.04 300;
+    --foreground: 0.95 0.02 340;
+    --card: 0.19 0.05 300;
+    --card-foreground: 0.95 0.02 340;
+    --popover: 0.22 0.05 300;
+    --popover-foreground: 0.95 0.02 340;
+    --primary: 0.8 0.11 350;
+    --primary-foreground: 0.14 0.04 300;
+    --primary-hover: 0.86 0.09 350;
+    --secondary: 0.26 0.07 290;
+    --secondary-foreground: 0.9 0.05 290;
+    --accent: 0.3 0.08 38;
+    --accent-foreground: 0.92 0.08 38;
+    --muted: 0.24 0.04 300;
+    --muted-foreground: 0.64 0.04 310;
+    --border: 0.28 0.05 300;
+    --input: 0.28 0.05 300;
+    --ring: 0.8 0.11 350;
+    --destructive: 0.704 0.191 22.216;
+    --destructive-foreground: 0.205 0 0;
+    --chart-1: 0.8 0.11 350;
+    --chart-2: 0.72 0.1 290;
+    --chart-3: 0.82 0.09 38;
+    --chart-4: 0.627 0.265 303.9;
+    --chart-5: 0.645 0.246 16.439;
+    --sidebar: 0.19 0.05 300;
+    --sidebar-foreground: 0.95 0.02 340;
+    --sidebar-primary: 0.8 0.11 350;
+    --sidebar-primary-foreground: 0.14 0.04 300;
+    --sidebar-accent: 0.3 0.08 38;
+    --sidebar-accent-foreground: 0.92 0.08 38;
+    --sidebar-border: 0.28 0.05 300;
+    --sidebar-ring: 0.8 0.11 350;
+    --pink-soft: 0.24 0.05 350;
+    --lavender-soft: 0.24 0.05 290;
+    --peach-soft: 0.24 0.06 38;
+    --paw-shadow: 0 4px 20px oklch(0 0 0 / 0.4);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Outfit", sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: "Bricolage Grotesque", sans-serif;
+  }
+}
+
+/* ── Custom Utilities ───────────────────────────────────────────────── */
+@layer utilities {
+  /* 🌸 Paw shadow utility */
+  .paw-shadow {
+    box-shadow: var(--paw-shadow);
+  }
+
+  /* 🎨 Soft pastel tint backgrounds */
+  .bg-pink-soft {
+    background-color: oklch(var(--pink-soft));
+  }
+
+  .bg-lavender-soft {
+    background-color: oklch(var(--lavender-soft));
+  }
+
+  .bg-peach-soft {
+    background-color: oklch(var(--peach-soft));
+  }
+
+  /* 🌈 Gradient utilities */
+  .gradient-paw {
+    background: linear-gradient(
+      135deg,
+      oklch(var(--pink-soft)) 0%,
+      oklch(var(--lavender-soft)) 100%
+    );
+  }
+
+  .gradient-peach-rose {
+    background: linear-gradient(
+      135deg,
+      oklch(var(--peach-soft)) 0%,
+      oklch(var(--pink-soft)) 100%
+    );
+  }
+
+  /* 🐾 Pet card hover lift */
+  .pet-card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .pet-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px oklch(0.78 0.13 350 / 0.22);
+  }
+
+  /* 💬 Chat message bubbles */
+  .message-bubble-sent {
+    background: oklch(var(--primary));
+    color: oklch(var(--primary-foreground));
+    border-radius: 1.2rem 1.2rem 0.25rem 1.2rem;
+  }
+
+  .message-bubble-received {
+    background: oklch(var(--muted));
+    color: oklch(var(--foreground));
+    border-radius: 1.2rem 1.2rem 1.2rem 0.25rem;
+  }
+
+  /* ✨ Subtle noise texture overlay */
+  .noise-bg {
+    position: relative;
+  }
+
+  .noise-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+}

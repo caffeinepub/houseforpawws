@@ -71,68 +71,89 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       {/* Hero Banner */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-pink-soft via-background to-lavender-soft py-16 md:py-24 noise-bg">
+      <section className="relative overflow-hidden bg-gradient-to-br from-pink-soft via-background to-lavender-soft py-20 md:py-32 noise-bg">
+        {/* Decorative pastel blobs */}
+        <div
+          className="absolute -top-20 -left-20 w-96 h-96 rounded-full blur-3xl pointer-events-none select-none"
+          style={{ background: "oklch(0.92 0.08 350 / 0.45)" }}
+        />
+        <div
+          className="absolute top-10 right-1/3 w-72 h-72 rounded-full blur-3xl pointer-events-none select-none"
+          style={{ background: "oklch(0.90 0.07 290 / 0.35)" }}
+        />
+        <div
+          className="absolute bottom-0 right-0 w-80 h-80 rounded-full blur-3xl pointer-events-none select-none"
+          style={{ background: "oklch(0.93 0.06 55 / 0.40)" }}
+        />
+
         <div className="container relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-2xl"
-          >
-            <Badge className="mb-4 bg-primary/15 text-primary border-0 rounded-full px-3 py-1 text-sm">
-              🐾 Find your forever friend
-            </Badge>
-            <h1 className="font-display text-4xl md:text-6xl font-bold text-foreground leading-tight mb-4">
-              Every pet deserves a{" "}
-              <span className="text-primary">loving home.</span>
-            </h1>
-            <p className="text-lg text-muted-foreground mb-8 max-w-lg">
-              Connect with pets waiting for adoption in your area. Browse,
-              message owners, and open your heart.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              {!identity ? (
-                <>
-                  <Link to="/register">
+          <div className="flex flex-col lg:flex-row items-center gap-12">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="max-w-2xl flex-1"
+            >
+              <Badge className="mb-4 bg-primary/15 text-primary border-0 rounded-full px-3 py-1 text-sm">
+                🐾 Find your forever friend
+              </Badge>
+              <h1 className="font-display text-5xl md:text-7xl font-bold text-foreground leading-tight mb-4">
+                Every pet deserves a{" "}
+                <span className="text-primary">loving home.</span>
+              </h1>
+              <p className="text-lg text-muted-foreground mb-8 max-w-lg">
+                Connect with pets waiting for adoption in your area. Browse,
+                message owners, and open your heart.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {!identity ? (
+                  <>
+                    <Link to="/register">
+                      <Button
+                        size="lg"
+                        className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-paw"
+                        data-ocid="home.register.button"
+                      >
+                        Get Started
+                      </Button>
+                    </Link>
+                    <a href="#browse">
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="rounded-full"
+                        data-ocid="home.browse.button"
+                      >
+                        Browse Pets
+                      </Button>
+                    </a>
+                  </>
+                ) : (
+                  <Link to="/pets/new">
                     <Button
                       size="lg"
                       className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-paw"
-                      data-ocid="home.register.button"
+                      data-ocid="home.list_pet.button"
                     >
-                      Get Started
+                      + List a Pet
                     </Button>
                   </Link>
-                  <a href="#browse">
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="rounded-full"
-                      data-ocid="home.browse.button"
-                    >
-                      Browse Pets
-                    </Button>
-                  </a>
-                </>
-              ) : (
-                <Link to="/pets/new">
-                  <Button
-                    size="lg"
-                    className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-paw"
-                    data-ocid="home.list_pet.button"
-                  >
-                    + List a Pet
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </motion.div>
-        </div>
-        {/* Decorative paw prints */}
-        <div className="absolute right-8 top-8 text-primary/10 text-8xl select-none pointer-events-none hidden lg:block">
-          🐾
-        </div>
-        <div className="absolute right-32 bottom-8 text-primary/8 text-5xl select-none pointer-events-none hidden lg:block">
-          🐾
+                )}
+              </div>
+            </motion.div>
+
+            {/* Floating pet illustration */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.7, delay: 0.2 }}
+              className="hidden lg:flex shrink-0 w-64 h-64 rounded-3xl gradient-paw items-center justify-center shadow-paw-lg"
+            >
+              <span className="text-[10rem] leading-none animate-paw-bounce select-none">
+                🐾
+              </span>
+            </motion.div>
+          </div>
         </div>
       </section>
 
